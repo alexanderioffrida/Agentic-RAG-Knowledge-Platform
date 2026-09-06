@@ -60,12 +60,29 @@ def ingest_collection(client, alias, dataset):
     pass
 
 def swap_alias(client, alias, build):
-    '''points the alias at the completed build via one CreateAliasOperation.'''
-    pass
+    '''points the alias at the completed build via one CreateAliasOperation. this uses
+    the exact same alias name and leverages the upsert behavior to modify where it points.'''
+    client.update_collection_aliases(
+        change_aliases_operations=[
+            CreateAliasOperation(
+                create_alias=CreateAlias(collection_name=build, alias_name=alias)
+            )
+        ]
+    )
 
 def cleanup_builds(client, alias):
-    '''deletes every {alias}__build__* collection that is not the alias's current target.'''
-    pass
+    '''deletes every {alias}__build_* collection that is not the alias's current target.'''
+    prefix = f"{alias}__build_"
+    current = None
+    for entry in client.get_aliases().aliases:
+        if entry.alias_name == alias:
+            current = entry.collection_name
+            break
+    
+    for collection in client.get_collections().collections:
+        if collection.name.startswith(prefix) and collection.name != current:
+            print(f"-> Removing stale build collection '{collection.name}'...")
+            client.delete_collection(collection.name)
 
 def get_or_create_retriever(client, base, dataset):
     '''orchestrates cleanup, then load or build.'''
