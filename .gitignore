@@ -1,0 +1,20 @@
+# ––– Python –––
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# ––– Local Environments –––
+.env
+venv/
+env/
+
+# ––– Conda –––
+.conda/
+
+# ––– macOS –––
+.DS_Store
+.AppleDouble
+.LSOverride
