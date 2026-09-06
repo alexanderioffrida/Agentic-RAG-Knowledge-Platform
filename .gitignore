@@ -18,3 +18,12 @@ env/
 .DS_Store
 .AppleDouble
 .LSOverride
+
+# ––– Editors –––
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ––– Personal –––
+NOTES.md
