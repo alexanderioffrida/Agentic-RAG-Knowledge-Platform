@@ -1,4 +1,6 @@
 import os
+import re
+from datetime import datetime, timezone
 from typing import Annotated, TypedDict
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -13,6 +15,12 @@ from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
+from qdrant_client.http.models import (
+    CreateAlias,
+    CreateAliasOperation,
+    Distance,
+    VectorParams
+)
 
 load_dotenv()
 qdrant_key = os.getenv("QDRANT_KEY")
@@ -33,13 +41,19 @@ def preprocess_dataset(docs_list):
     doc_splits = text_splitter.split_documents(docs_list)
     return doc_splits
 
+_client = None
+
 def get_client():
     '''returns a single module-level QdrantClient, created on first use and reused.'''
-    pass
+    global _client
+    if _client is None:
+        _client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+    return _client
 
 def alias_for(base):
     '''assembles the alias from base name, model slug, and document count.'''
-    pass
+    slug = re.sub(r"[^a-z0-9]+", "_", embedding_model.lower()).strip("_")
+    return f"{base}__{slug}__n{number_of_docs}"
 
 def ingest_collection(client, alias, dataset):
     '''creates the build collection, uploads splits, returns the build name.'''
