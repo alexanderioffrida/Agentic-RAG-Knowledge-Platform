@@ -11,6 +11,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
 
 load_dotenv()
 qdrant_key = os.getenv("QDRANT_KEY")
@@ -18,6 +19,7 @@ qdrant_url = os.getenv("QDRANT_URL")
 brave_key = os.getenv("BRAVE_API_KEY")
 
 number_of_docs = 50
+embedding_model = "text-embedding-3-small"
 
 def preprocess_dataset(docs_list):
     '''this function processes our documents by splitting them into manageable chunks, 
@@ -31,24 +33,42 @@ def preprocess_dataset(docs_list):
     return doc_splits
 
 def create_retriever(collection_name, doc_splits):
+    '''creates a fresh colletion, embeds docs, and uploads them to Qdrant.'''
     vectorstore = QdrantVectorStore.from_documents(
         doc_splits,
-        OpenAIEmbeddings(model="text-embedding-3-small"),
+        OpenAIEmbeddings(model=embedding_model),
         url=qdrant_url,
         api_key=qdrant_key,
         collection_name=collection_name
     )
     return vectorstore.as_retriever()
 
+def get_retriever(collection_name):
+    '''connects directly to a pre-existing collection without embedding anything.'''
+    vectorstore = QdrantVectorStore.from_existing_collection(
+        OpenAIEmbeddings(model=embedding_model),
+        url=qdrant_url,
+        api_key=qdrant_key,
+        collection_name=collection_name
+    )
+    return vectorstore.as_retriever()
+
+def get_or_create_retriever(collection_name, dataset_name):
+    '''checks Qdrant first. loads if exists, otherwise downloads and ingests.'''
+    client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+
+    if client.collection_exists(collection_name):
+        print(f"-> Collection '{collection_name}' found in Qdrant. Loading existing data...")
+        return get_retriever(collection_name)
+    else:
+        print(f"-> Collection '{collection_name}' NOT found. Downloading and ingesting '{dataset_name}'...")
+        loader = HuggingFaceDatasetLoader(dataset_name, "text")
+        splits = preprocess_dataset(loader.load()[:number_of_docs])
+        return create_retriever(collection_name, splits)
+
 def ingest():
-    hugging_face_doc = HuggingFaceDatasetLoader("m-ric/huggingface_doc", "text")
-    transformers_doc = HuggingFaceDatasetLoader("m-ric/transformers_documentation_en", "text")
-
-    hf_splits = preprocess_dataset(hugging_face_doc.load()[:number_of_docs])
-    transformer_splits = preprocess_dataset(transformers_doc.load()[:number_of_docs])
-
-    hf_retriever = create_retriever("hf_docs", hf_splits)
-    transformer_retriever = create_retriever("transformer_docs", transformer_splits)
+    hf_retriever = get_or_create_retriever("hf_docs", "m-ric/huggingface_doc")
+    transformer_retriever = get_or_create_retriever("transformer_docs", "m-ric/transformers_documentation_en")
 
     hf_retriever_tool = create_retriever_tool(
         hf_retriever,
