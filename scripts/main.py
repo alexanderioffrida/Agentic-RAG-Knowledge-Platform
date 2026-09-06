@@ -33,39 +33,64 @@ def preprocess_dataset(docs_list):
     doc_splits = text_splitter.split_documents(docs_list)
     return doc_splits
 
-def create_retriever(collection_name, doc_splits):
-    '''creates a fresh colletion, embeds docs, and uploads them to Qdrant.'''
-    vectorstore = QdrantVectorStore.from_documents(
-        doc_splits,
-        OpenAIEmbeddings(model=embedding_model),
-        url=qdrant_url,
-        api_key=qdrant_key,
-        collection_name=collection_name
-    )
-    return vectorstore.as_retriever()
+def get_client():
+    '''returns a single module-level QdrantClient, created on first use and reused.'''
+    pass
 
-def get_retriever(collection_name):
-    '''connects directly to a pre-existing collection without embedding anything.'''
-    vectorstore = QdrantVectorStore.from_existing_collection(
-        embedding=OpenAIEmbeddings(model=embedding_model),
-        url=qdrant_url,
-        api_key=qdrant_key,
-        collection_name=collection_name
-    )
-    return vectorstore.as_retriever()
+def alias_for(base):
+    '''assembles the alias from base name, model slug, and document count.'''
+    pass
 
-def get_or_create_retriever(collection_name, dataset_name):
-    '''checks Qdrant first. loads if exists, otherwise downloads and ingests.'''
-    client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+def ingest_collection(client, alias, dataset):
+    '''creates the build collection, uploads splits, returns the build name.'''
+    pass
 
-    if client.collection_exists(collection_name):
-        print(f"-> Collection '{collection_name}' found in Qdrant. Loading existing data...")
-        return get_retriever(collection_name)
-    else:
-        print(f"-> Collection '{collection_name}' NOT found. Downloading and ingesting '{dataset_name}'...")
-        loader = HuggingFaceDatasetLoader(dataset_name, "text")
-        splits = preprocess_dataset(loader.load()[:number_of_docs])
-        return create_retriever(collection_name, splits)
+def swap_alias(client, alias, build):
+    '''points the alias at the completed build via one CreateAliasOperation.'''
+    pass
+
+def cleanup_builds(client, alias):
+    '''deletes every {alias}__build__* collection that is not the alias's current target.'''
+    pass
+
+def get_or_create_retriever(client, base, dataset):
+    '''orchestrates cleanup, then load or build.'''
+    pass
+
+
+# def create_retriever(collection_name, doc_splits):
+#     '''creates a fresh colletion, embeds docs, and uploads them to Qdrant.'''
+#     vectorstore = QdrantVectorStore.from_documents(
+#         doc_splits,
+#         OpenAIEmbeddings(model=embedding_model),
+#         url=qdrant_url,
+#         api_key=qdrant_key,
+#         collection_name=collection_name
+#     )
+#     return vectorstore.as_retriever()
+
+# def get_retriever(collection_name):
+#     '''connects directly to a pre-existing collection without embedding anything.'''
+#     vectorstore = QdrantVectorStore.from_existing_collection(
+#         embedding=OpenAIEmbeddings(model=embedding_model),
+#         url=qdrant_url,
+#         api_key=qdrant_key,
+#         collection_name=collection_name
+#     )
+#     return vectorstore.as_retriever()
+
+# def get_or_create_retriever(collection_name, dataset_name):
+#     '''checks Qdrant first. loads if exists, otherwise downloads and ingests.'''
+#     client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
+
+#     if client.collection_exists(collection_name):
+#         print(f"-> Collection '{collection_name}' found in Qdrant. Loading existing data...")
+#         return get_retriever(collection_name)
+#     else:
+#         print(f"-> Collection '{collection_name}' NOT found. Downloading and ingesting '{dataset_name}'...")
+#         loader = HuggingFaceDatasetLoader(dataset_name, "text")
+#         splits = preprocess_dataset(loader.load()[:number_of_docs])
+#         return create_retriever(collection_name, splits)
 
 def ingest():
     hf_retriever = get_or_create_retriever("hf_docs", "m-ric/huggingface_doc")
