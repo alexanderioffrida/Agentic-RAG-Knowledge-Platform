@@ -10,6 +10,7 @@ from langchain_community.tools import BraveSearch
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.memory import MemorySaver
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
@@ -46,7 +47,7 @@ def create_retriever(collection_name, doc_splits):
 def get_retriever(collection_name):
     '''connects directly to a pre-existing collection without embedding anything.'''
     vectorstore = QdrantVectorStore.from_existing_collection(
-        OpenAIEmbeddings(model=embedding_model),
+        embedding=OpenAIEmbeddings(model=embedding_model),
         url=qdrant_url,
         api_key=qdrant_key,
         collection_name=collection_name
@@ -127,17 +128,22 @@ def compile_graph(hf_retriever_tool, transformer_retriever_tool):
     )
     graph_builder.add_edge("tools", "agent")
     graph_builder.add_edge(START, "agent")
-    return graph_builder.compile()
 
-def run_agent(graph, user_input: str):
-    for event in graph.stream({"messages": [("user", user_input)]}):
-        for value in event.values():
-            print("Assistant:", value["messages"][-1].content)
+    memory = MemorySaver()
+    return graph_builder.compile(checkpointer=memory)
+
+def run_agent(graph, user_input: str, config: dict):
+    for event in graph.stream({"messages": [("user", user_input)]}, config=config):
+        if "agent" in event:
+            content = event["agent"]["messages"][-1].content
+            if content:
+                print("Assistant:", content)
 
 def main():
     '''REPL'''
     hf_retriever_tool, transformer_retriever_tool = ingest()
     graph = compile_graph(hf_retriever_tool, transformer_retriever_tool)
+    config = {"configurable": {"thread_id": "cli_session"}}
     print("Ready. Type 'quit' to exit.")
     while True:
         try:
@@ -149,7 +155,7 @@ def main():
             continue
         if user_input.lower() in {"quit", "exit", "q"}:
             break
-        run_agent(graph, user_input)
+        run_agent(graph, user_input, config)
 
 if __name__ == "__main__":
     main()
