@@ -1,5 +1,6 @@
 import os
 import re
+import uuid
 from datetime import datetime, timezone
 from typing import Annotated, TypedDict
 from dotenv import load_dotenv
@@ -57,7 +58,36 @@ def alias_for(base):
 
 def ingest_collection(client, alias, dataset):
     '''creates the build collection, uploads splits, returns the build name.'''
-    pass
+    print(f"-> Alias '{alias}' NOT found. Downloading and ingesting '{dataset}'...")
+    loader = HuggingFaceDatasetLoader(dataset, "text")
+    splits = preprocess_dataset(loader.load()[:number_of_docs])
+
+    embeddings = OpenAIEmbeddings(model=embedding_model)
+    dimension = len(embeddings.embed_query("dimension_probe"))
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    build = f"{alias}__build_{stamp}_{uuid.uuid4().hex[:8]}"
+    client.create_collection(
+        build, VectorParams(size=dimension, distance=Distance.COSINE)
+    )
+
+    try:
+        store = QdrantVectorStore(
+            client=client, collection_name=build, embedding=embeddings
+        )
+        store.add_documents(splits)
+        uploaded = client.get_collection(build).points_count
+        if uploaded != len(splits):
+            raise RuntimeError(
+                f"expected {len(splits)} points in '{build}', found {uploaded}"
+            )
+    except BaseException:
+        print(f"-> Ingest failed. Discarding incomplete build '{build}'...")
+        client.delete_collection(build)
+        raise
+
+    print(f"-> Uploaded {len(splits)} chunks to '{build}'.")
+    return build
 
 def swap_alias(client, alias, build):
     '''points the alias at the completed build via one CreateAliasOperation. this uses
