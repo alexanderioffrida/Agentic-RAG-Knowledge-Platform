@@ -3,9 +3,6 @@
 Personal notes on urgent items to be fixed / implemented.
 
 ## Primary
-
-**Ingest Tests.** deferred from the alias-swap design, so the whole ingest lifecycle currently ships untested. `QdrantClient(":memory:")` gives a real local Qdrant and `DeterministicFakeEmbedding` stands in for OpenAI, so this costs nothing to run: cold start builds and aliases, warm start reuses without re-embedding, an unaliased build gets cleaned and rebuilt, a model change yields a new alias, stale builds get collected. spec is at `docs/superpowers/specs/2026-09-06-qdrant-collection-integrity-design.md`.
-**REPL #1.** `run_agent` only prints on `agent` events, which means there's zero feedback while a retrieval or Brave search is in flight. a one-line notice on tool events would fix this without reintroducing JSON noise.
 **FUTURE: FastAPI Layer.** `MemorySaver` is in-process only, so history dies with the REPL. when i get to the FastAPI layer i'll want a persistent checkpointer and a `thread_id` per user rather than a constant.
 
 ## Secondary

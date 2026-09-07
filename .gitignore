@@ -24,3 +24,6 @@ env/
 .idea/
 *.swp
 *.swo
+
+# ––– Other –––
+docs/

@@ -203,9 +203,11 @@ def compile_graph(hf_retriever_tool, transformer_retriever_tool):
 def run_agent(graph, user_input: str, config: dict):
     for event in graph.stream({"messages": [("user", user_input)]}, config=config):
         if "agent" in event:
-            content = event["agent"]["messages"][-1].content
-            if content:
-                print("Assistant:", content)
+            message = event["agent"]["messages"][-1]
+            for call in getattr(message, "tool_calls", []):
+                print(f"-> Calling {call['name']}...")
+            if message.content:
+                print("Assistant:", message.content)
 
 def main():
     '''REPL'''

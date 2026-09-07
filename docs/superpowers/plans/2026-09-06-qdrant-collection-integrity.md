@@ -277,7 +277,7 @@ def ingest_collection(client, alias, dataset):
     return build
 ```
 
-- [ ] **Step 2: Verify the success path and the crash path**
+- [x] **Step 2: Verify the success path and the crash path**
 
 Write `/tmp/verify_task3.py`:
 
@@ -336,7 +336,7 @@ print("task 3 OK")
 Run: `.venv/bin/python /tmp/verify_task3.py`
 Expected: `task 3 OK`. The success path uploads 8 points and does not create the alias; the interrupted path propagates `KeyboardInterrupt` and leaves zero new collections.
 
-- [ ] **Step 3: Clean up and commit**
+- [x] **Step 3: Clean up and commit**
 
 ```bash
 rm /tmp/verify_task3.py
@@ -359,7 +359,7 @@ git commit -m "main: build into timestamped collection with verified upload"
 - Consumes: `alias_for`, `cleanup_builds`, `ingest_collection`, `swap_alias`, `get_client`.
 - Produces: `get_or_create_retriever(client, base, dataset) -> VectorStoreRetriever`. `ingest()` calls it twice and passes the retrievers to `create_retriever_tool` unchanged.
 
-- [ ] **Step 1: Implement** `get_or_create_retriever`
+- [x] **Step 1: Implement** `get_or_create_retriever`
 
 Replace the stub body. Cleanup runs first and unconditionally, so a stale build is cleared whether or not a working alias exists:
 
@@ -385,11 +385,11 @@ def get_or_create_retriever(client, base, dataset):
     return store.as_retriever()
 ```
 
-- [ ] **Step 2: Delete the commented-out legacy functions**
+- [x] **Step 2: Delete the commented-out legacy functions**
 
 Remove the entire commented block spanning `# def create_retriever(collection_name, doc_splits):` through `#         return create_retriever(collection_name, splits)` (lines 61-93). It is superseded and the spec forbids both factory methods it uses.
 
-- [ ] **Step 3: Update** `ingest` **to pass the shared client**
+- [x] **Step 3: Update** `ingest` **to pass the shared client**
 
 Replace the first two lines of `ingest`:
 
@@ -404,7 +404,7 @@ def ingest():
 
 Leave the two `create_retriever_tool` calls and the return statement exactly as they are.
 
-- [ ] **Step 4: Verify the full lifecycle in memory**
+- [x] **Step 4: Verify the full lifecycle in memory**
 
 Write `/tmp/verify_task4.py`:
 
@@ -465,12 +465,12 @@ print("task 4 OK")
 Run: `.venv/bin/python /tmp/verify_task4.py`
 Expected: `task 4 OK`. This covers four of the five deferred test scenarios from the spec.
 
-- [ ] **Step 5: Confirm the module still imports cleanly**
+- [x] **Step 5: Confirm the module still imports cleanly**
 
 Run: `.venv/bin/python -c "import sys; sys.path.insert(0,'scripts'); import main; print('import OK')"`
 Expected: `import OK` with no `NameError` from the deleted legacy block.
 
-- [ ] **Step 6: Clean up and commit**
+- [x] **Step 6: Clean up and commit**
 
 ```bash
 rm /tmp/verify_task4.py
@@ -495,22 +495,22 @@ git commit -m "main: orchestrate alias-backed retrieval and drop legacy ingest p
 
 This is the first task that spends money — two datasets of 50 documents through `text-embedding-3-small`, on the order of cents. The Qdrant instance currently holds zero collections, so this is a genuine cold start.
 
-- [ ] **Step 1: Cold run**
+- [x] **Step 1: Cold run**
 
 Run: `.venv/bin/python scripts/main.py`
 Expected: two `-> Alias '...' NOT found. Downloading and ingesting ...` lines, each followed by `-> Uploaded N chunks to '...__build_<timestamp>'.` and `-> Alias '...' now points at '...'`. Then the `Ready.` prompt.
 
-- [ ] **Step 2: Confirm retrieval works, then exit**
+- [x] **Step 2: Confirm retrieval works, then exit**
 
 At the `User:` prompt, ask: `What does the transformers pipeline function do?`
 Expected: a grounded answer. Then type `quit`.
 
-- [ ] **Step 3: Warm run**
+- [x] **Step 3: Warm run**
 
 Run: `.venv/bin/python scripts/main.py`
 Expected: two `-> Alias '...' found in Qdrant. Loading existing index...` lines, no download, no upload, and a noticeably faster start.
 
-- [ ] **Step 4: Inspect the resulting server state**
+- [x] **Step 4: Inspect the resulting server state**
 
 Write `/tmp/verify_task5.py`:
 
@@ -547,7 +547,7 @@ print("task 5 OK")
 Run: `.venv/bin/python /tmp/verify_task5.py`
 Expected: `task 5 OK`, with exactly two build collections, each carrying a non-zero point count and each the target of its alias. No leftovers.
 
-- [ ] **Step 5: Clean up**
+- [x] **Step 5: Clean up**
 
 ```bash
 rm /tmp/verify_task5.py
