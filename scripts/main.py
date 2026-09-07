@@ -6,6 +6,7 @@ from typing import Annotated, TypedDict
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool
 from langchain_core.tools.retriever import create_retriever_tool
 from langchain_community.document_loaders import HuggingFaceDatasetLoader
@@ -30,6 +31,19 @@ brave_key = os.getenv("BRAVE_API_KEY")
 
 number_of_docs = 50
 embedding_model = "text-embedding-3-small"
+
+SYSTEM_PROMPT = """You are an expert AI assistant specializing in Hugging Face and machine learning.
+You have three tools available:
+- retriever_hugging_face_documentation: Search general Hugging Face ecosystem documentation, tutorials, Hub, and guides.
+- retriever_transformer_documentation: Search documentation specifically for the Hugging Face Transformers library (models, pipelines, tokenizers, Trainer).
+- web_search_tool: Search the live web for recent developments, external information, or topics outside Hugging Face documentation.
+
+Routing guidelines:
+1. Always prefer the documentation retrievers when answering technical questions about Hugging Face or Transformers.
+2. Route queries about Transformer models, architectures, tokenizers, or specific transformers classes to retriever_transformer_documentation.
+3. Route queries about other Hugging Face libraries, Hub, datasets, spaces, or general ecosystem workflows to retriever_hugging_face_documentation.
+4. Fall back to web_search_tool only if the information cannot be found in the documentation retrievers or if the user explicitly asks about current events / external packages.
+5. Ground your answers strictly in the retrieved information and explain the reasoning clearly."""
 
 def preprocess_dataset(docs_list):
     '''this function processes our documents by splitting them into manageable chunks, 
@@ -76,7 +90,7 @@ def ingest_collection(client, alias, dataset):
             client=client, collection_name=build, embedding=embeddings
         )
         store.add_documents(splits)
-        uploaded = client.get_collection(build).points_count
+        uploaded = client.count(build, exact=True).count # was originally client.get_collection(build).points_count
         if uploaded != len(splits):
             raise RuntimeError(
                 f"expected {len(splits)} points in '{build}', found {uploaded}"
@@ -177,14 +191,21 @@ def route(state: State):
     
     return END
 
-def compile_graph(hf_retriever_tool, transformer_retriever_tool):
+def compile_graph(hf_retriever_tool, transformer_retriever_tool, system_prompt: str = SYSTEM_PROMPT):
     tools = [hf_retriever_tool, transformer_retriever_tool, search_tool]
     tool_node = ToolNode(tools=tools)
     llm = ChatOpenAI(model="gpt-4o", temperature=0)
     llm_with_tools = llm.bind_tools(tools)
 
     def agent(state: State):
-        return {"messages": [llm_with_tools.invoke(state["messages"])]}
+        messages = state["messages"]
+        if system_prompt:
+            prompt_messages = [SystemMessage(content=system_prompt)] + [
+                m for m in messages if not isinstance(m, SystemMessage)
+            ]
+        else:
+            prompt_messages = messages
+        return {"messages": [llm_with_tools.invoke(prompt_messages)]}
 
     graph_builder = StateGraph(State)
     graph_builder.add_node("agent", agent)

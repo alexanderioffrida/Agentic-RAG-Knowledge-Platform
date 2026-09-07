@@ -3,18 +3,19 @@
 Personal notes on urgent items to be fixed / implemented.
 
 ## Primary
+
 **FUTURE: FastAPI Layer.** `MemorySaver` is in-process only, so history dies with the REPL. when i get to the FastAPI layer i'll want a persistent checkpointer and a `thread_id` per user rather than a constant.
 
 ## Secondary
 
 **REPL #2.** with a single hardcoded `thread_id`, history grows without bound, including every 700-token retrieved chunk, so a long session will creep toward the context limit and rising per-turn cost.
 
-- No system prompt to drive routing between the two retrievers and web search.
 - `.load()[:50]` still materializes the whole dataset before slicing.
 - `route` is still a manual reimplementation of `tools_condition`.
 - No env-var validation.
 - No type hints on `preprocess_dataset`/`create_retriever`.
 - Hybrid retrieval, the BGE ranker, and citations are all still absent.
+- I should build the alias from one config object (dataset, model, n, splitter params, and soon the sparse model)
 
 
 
