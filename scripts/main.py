@@ -116,46 +116,28 @@ def cleanup_builds(client, alias):
 
 def get_or_create_retriever(client, base, dataset):
     '''orchestrates cleanup, then load or build.'''
-    pass
-
-
-# def create_retriever(collection_name, doc_splits):
-#     '''creates a fresh colletion, embeds docs, and uploads them to Qdrant.'''
-#     vectorstore = QdrantVectorStore.from_documents(
-#         doc_splits,
-#         OpenAIEmbeddings(model=embedding_model),
-#         url=qdrant_url,
-#         api_key=qdrant_key,
-#         collection_name=collection_name
-#     )
-#     return vectorstore.as_retriever()
-
-# def get_retriever(collection_name):
-#     '''connects directly to a pre-existing collection without embedding anything.'''
-#     vectorstore = QdrantVectorStore.from_existing_collection(
-#         embedding=OpenAIEmbeddings(model=embedding_model),
-#         url=qdrant_url,
-#         api_key=qdrant_key,
-#         collection_name=collection_name
-#     )
-#     return vectorstore.as_retriever()
-
-# def get_or_create_retriever(collection_name, dataset_name):
-#     '''checks Qdrant first. loads if exists, otherwise downloads and ingests.'''
-#     client = QdrantClient(url=qdrant_url, api_key=qdrant_key)
-
-#     if client.collection_exists(collection_name):
-#         print(f"-> Collection '{collection_name}' found in Qdrant. Loading existing data...")
-#         return get_retriever(collection_name)
-#     else:
-#         print(f"-> Collection '{collection_name}' NOT found. Downloading and ingesting '{dataset_name}'...")
-#         loader = HuggingFaceDatasetLoader(dataset_name, "text")
-#         splits = preprocess_dataset(loader.load()[:number_of_docs])
-#         return create_retriever(collection_name, splits)
+    alias = alias_for(base)
+    cleanup_builds(client, alias)
+    
+    if client.collection_exists(alias):
+        print(f"-> Alias '{alias}' found in Qdrant. Loading existing index...")
+    else:
+        build = ingest_collection(client, alias, dataset)
+        swap_alias(client, alias, build)
+        cleanup_builds(client, alias)
+        print(f"-> Alias '{alias}' now points at '{build}'.")
+    
+    store = QdrantVectorStore(
+        client=client,
+        collection_name=alias,
+        embedding=OpenAIEmbeddings(model=embedding_model)
+    )
+    return store.as_retriever()
 
 def ingest():
-    hf_retriever = get_or_create_retriever("hf_docs", "m-ric/huggingface_doc")
-    transformer_retriever = get_or_create_retriever("transformer_docs", "m-ric/transformers_documentation_en")
+    client = get_client()
+    hf_retriever = get_or_create_retriever(client, "hf_docs", "m-ric/huggingface_doc")
+    transformer_retriever = get_or_create_retriever(client, "transformer_docs", "m-ric/transformers_documentation_en")
 
     hf_retriever_tool = create_retriever_tool(
         hf_retriever,
