@@ -17,24 +17,28 @@
 - No new dependencies. A committed test suite is deferred by user decision and tracked in `NOTES.md` under Primary; each task below verifies with a throwaway script under `/tmp` that is deleted afterward.
 - Never use `QdrantVectorStore.from_documents` or `QdrantVectorStore.from_existing_collection`. Neither accepts `client=`; `from_documents` forwards it into httpx and raises `TypeError: Client.__init__() got an unexpected keyword argument 'client'`. Use `QdrantVectorStore(client=..., collection_name=..., embedding=...)`.
 - Alias format: `{base}__{model_slug}__n{number_of_docs}`, where `model_slug` is `embedding_model` lowercased with each run of non-alphanumeric characters replaced by a single underscore.
-- Build collection format: `{alias}__build_{YYYYMMDDTHHMMSSZ}` in UTC.
+- Build collection format: `{alias}__build_{YYYYMMDDTHHMMSSZ}_{uuid4().hex[:8]}` in UTC. The random suffix is required: second-resolution timestamps collide when two ingests run in the same second, and `create_collection` raises `ValueError: Collection ... already exists`.
 - Vector config is always `VectorParams(size=dim, distance=Distance.COSINE)`. `dim` comes from a single `embed_query` call, never hardcoded.
 - Upload failures catch `BaseException`, not `Exception`, so `KeyboardInterrupt` is included.
-- Progress output uses the existing `-> ` prefix style.
+- Progress output uses the existing `->`  prefix style.
 - Verification scripts patch module attributes (`main.OpenAIEmbeddings`, `main.HuggingFaceDatasetLoader`) rather than adding injection parameters to production code.
 
 ---
 
+
+
 ### Task 1: Identity layer — client singleton and alias naming
 
 **Files:**
+
 - Modify: `scripts/main.py` (imports at lines 1-15, stubs `get_client` at line 36 and `alias_for` at line 40)
 
 **Interfaces:**
+
 - Consumes: module globals `qdrant_url`, `qdrant_key`, `embedding_model`, `number_of_docs`.
 - Produces: `get_client() -> QdrantClient` (memoized singleton) and `alias_for(base: str) -> str`. Every later task calls both.
 
-- [ ] **Step 1: Commit the existing scaffold so later diffs are readable**
+- [x] **Step 1: Commit the existing scaffold so later diffs are readable**
 
 ```bash
 cd /Users/alexanderflores/agentic-rag
@@ -42,12 +46,13 @@ git add scripts/main.py
 git commit -m "main: scaffold alias-swap ingest functions"
 ```
 
-- [ ] **Step 2: Add the required imports**
+- [x] **Step 2: Add the required imports**
 
 Add to the top of `scripts/main.py`, after `import os`:
 
 ```python
 import re
+import uuid
 from datetime import datetime, timezone
 ```
 
@@ -62,7 +67,7 @@ from qdrant_client.http.models import (
 )
 ```
 
-- [ ] **Step 3: Implement `get_client` and `alias_for`**
+- [x] **Step 3: Implement** `get_client` **and** `alias_for`
 
 Add a module-level `_client = None` immediately above `def get_client():`, then replace both stub bodies:
 
@@ -82,7 +87,7 @@ def alias_for(base):
     return f"{base}__{slug}__n{number_of_docs}"
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Write `/tmp/verify_task1.py`:
 
@@ -108,7 +113,7 @@ print("task 1 OK")
 Run: `.venv/bin/python /tmp/verify_task1.py`
 Expected: `task 1 OK`. A different model or doc count must change the alias; the client must be identical across calls.
 
-- [ ] **Step 5: Clean up and commit**
+- [x] **Step 5: Clean up and commit**
 
 ```bash
 rm /tmp/verify_task1.py
@@ -118,16 +123,20 @@ git commit -m "main: add shared Qdrant client and model-aware alias naming"
 
 ---
 
+
+
 ### Task 2: Alias lifecycle — swap and orphan cleanup
 
 **Files:**
+
 - Modify: `scripts/main.py` (stubs `swap_alias` at line 48 and `cleanup_builds` at line 52)
 
 **Interfaces:**
+
 - Consumes: `alias_for` from Task 1; `CreateAlias`, `CreateAliasOperation` imports from Task 1.
 - Produces: `swap_alias(client, alias, build) -> None` and `cleanup_builds(client, alias) -> None`. Task 4 calls both.
 
-- [ ] **Step 1: Implement `swap_alias`**
+- [x] **Step 1: Implement** `swap_alias`
 
 Replace the stub body. A bare `CreateAliasOperation` on an existing alias silently re-points it, so no delete is needed and the swap is one atomic call:
 
@@ -143,7 +152,7 @@ def swap_alias(client, alias, build):
     )
 ```
 
-- [ ] **Step 2: Implement `cleanup_builds`**
+- [x] **Step 2: Implement** `cleanup_builds`
 
 Replace the stub body. Note the prefix is `__build_` with a single trailing underscore, matching Task 3's build names — the current stub docstring says `__build__`, so correct that too:
 
@@ -163,7 +172,7 @@ def cleanup_builds(client, alias):
             client.delete_collection(collection.name)
 ```
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 Write `/tmp/verify_task2.py`:
 
@@ -206,7 +215,7 @@ print("task 2 OK")
 Run: `.venv/bin/python /tmp/verify_task2.py`
 Expected: `task 2 OK`. Orphans deleted, live target kept, unrelated collections never touched, alias re-point works.
 
-- [ ] **Step 4: Clean up and commit**
+- [x] **Step 4: Clean up and commit**
 
 ```bash
 rm /tmp/verify_task2.py
@@ -216,16 +225,20 @@ git commit -m "main: add atomic alias swap and stale build cleanup"
 
 ---
 
+
+
 ### Task 3: Build collection creation and verified upload
 
 **Files:**
+
 - Modify: `scripts/main.py` (stub `ingest_collection` at line 44)
 
 **Interfaces:**
+
 - Consumes: `preprocess_dataset`, `HuggingFaceDatasetLoader`, `OpenAIEmbeddings`, `QdrantVectorStore`, `VectorParams`, `Distance`, `datetime`, `timezone`.
 - Produces: `ingest_collection(client, alias, dataset) -> str` returning the build collection name. Task 4 passes that return value to `swap_alias`.
 
-- [ ] **Step 1: Implement `ingest_collection`**
+- [x] **Step 1: Implement** `ingest_collection`
 
 Replace the stub body:
 
@@ -240,7 +253,7 @@ def ingest_collection(client, alias, dataset):
     dimension = len(embeddings.embed_query("dimension probe"))
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    build = f"{alias}__build_{stamp}"
+    build = f"{alias}__build_{stamp}_{uuid.uuid4().hex[:8]}"
     client.create_collection(
         build, VectorParams(size=dimension, distance=Distance.COSINE)
     )
@@ -333,16 +346,20 @@ git commit -m "main: build into timestamped collection with verified upload"
 
 ---
 
+
+
 ### Task 4: Orchestration and call-site migration
 
 **Files:**
+
 - Modify: `scripts/main.py` (stub `get_or_create_retriever` at line 56, commented-out block at lines 61-93, `ingest` at line 95)
 
 **Interfaces:**
+
 - Consumes: `alias_for`, `cleanup_builds`, `ingest_collection`, `swap_alias`, `get_client`.
 - Produces: `get_or_create_retriever(client, base, dataset) -> VectorStoreRetriever`. `ingest()` calls it twice and passes the retrievers to `create_retriever_tool` unchanged.
 
-- [ ] **Step 1: Implement `get_or_create_retriever`**
+- [ ] **Step 1: Implement** `get_or_create_retriever`
 
 Replace the stub body. Cleanup runs first and unconditionally, so a stale build is cleared whether or not a working alias exists:
 
@@ -372,7 +389,7 @@ def get_or_create_retriever(client, base, dataset):
 
 Remove the entire commented block spanning `# def create_retriever(collection_name, doc_splits):` through `#         return create_retriever(collection_name, splits)` (lines 61-93). It is superseded and the spec forbids both factory methods it uses.
 
-- [ ] **Step 3: Update `ingest` to pass the shared client**
+- [ ] **Step 3: Update** `ingest` **to pass the shared client**
 
 Replace the first two lines of `ingest`:
 
@@ -463,12 +480,16 @@ git commit -m "main: orchestrate alias-backed retrieval and drop legacy ingest p
 
 ---
 
+
+
 ### Task 5: Live acceptance run against Qdrant Cloud
 
 **Files:**
+
 - Modify: none. This task only runs the program.
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1-4.
 - Produces: a populated Qdrant instance and confirmation that the warm path skips ingestion.
 
@@ -532,7 +553,7 @@ Expected: `task 5 OK`, with exactly two build collections, each carrying a non-z
 rm /tmp/verify_task5.py
 ```
 
-- [ ] **Step 6: Mark the URGENT items resolved in `NOTES.md`**
+- [ ] **Step 6: Mark the URGENT items resolved in** `NOTES.md`
 
 Delete the three entries under `## URGENT` (`**Collection.**`, `**Collection Embedding Model.**`, `**Client on Every Call.**`) and the now-empty heading, since all three are closed by this plan. Leave the Primary, Secondary, and NEXT STEPS sections untouched.
 
@@ -543,6 +564,8 @@ git commit -m "personal: clear resolved URGENT items"
 
 ---
 
+
+
 ## Known follow-ups
 
 Deliberately out of scope, already tracked in `NOTES.md`:
@@ -550,3 +573,5 @@ Deliberately out of scope, already tracked in `NOTES.md`:
 - The committed test suite. The verification scripts above prove the behaviour but are deleted as they go. When the suite is written, note that `ingest_collection` constructs its own loader and embeddings, so tests will patch `main.HuggingFaceDatasetLoader` and `main.OpenAIEmbeddings` exactly as the scripts here do.
 - `.load()[:number_of_docs]` still materializes the full dataset before slicing. This plan preserves that behaviour rather than fixing it, so the change stays reviewable.
 - Environment variable validation. `get_client()` is the natural home for it when that item comes up.
+- Concurrent ingest from separate processes. The uuid suffix stops two simultaneous builds from colliding on a name, but two workers booting at once would each build a full index, both swap the alias, and each `cleanup_builds` could delete the other's in-flight build. Harmless for a single-process CLI; revisit when the FastAPI layer runs multiple workers.
+

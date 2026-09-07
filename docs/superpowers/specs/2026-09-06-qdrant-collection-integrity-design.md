@@ -71,9 +71,15 @@ hf_docs__text_embedding_3_small__n50
 Build collection, unique per ingest run:
 
 ```
-{alias}__build_{utc_timestamp}
-hf_docs__text_embedding_3_small__n50__build_20260906T213000Z
+{alias}__build_{utc_timestamp}_{random_suffix}
+hf_docs__text_embedding_3_small__n50__build_20260906T213000Z_2df45c97
 ```
+
+The random suffix is the first eight hex characters of a `uuid4`. A timestamp alone is not
+sufficient: `strftime("%Y%m%dT%H%M%SZ")` has one-second resolution, so two ingests of the same
+alias within the same second produce identical names and the second `create_collection` raises
+`ValueError: Collection ... already exists`. The timestamp is retained because it makes build
+age readable at a glance; the suffix is what guarantees uniqueness.
 
 `model_slug` lowercases `embedding_model` and replaces each run of non-alphanumeric characters
 with a single underscore, so `text-embedding-3-small` becomes `text_embedding_3_small`.
