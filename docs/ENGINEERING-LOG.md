@@ -144,16 +144,29 @@ strict function-calling rejects.
 
 ## Verification approach
 
-There is no committed test suite yet. During implementation, each task was verified with a
-throwaway script using `QdrantClient(":memory:")` — a real local Qdrant — plus
-`DeterministicFakeEmbedding` in place of OpenAI, so the full lifecycle could be exercised with no
-cloud calls and no embedding spend. Scenarios covered: cold build and alias creation, warm reuse
-without re-embedding, simulated `KeyboardInterrupt` mid-upload leaving zero residue, orphan
-cleanup, and an embedding-model change producing a separate alias.
+A committed test suite is now in place under `tests/`, covering the alias machinery, collection
+integrity, crash safety, and agent routing. Tests run with `pytest` using `QdrantClient(":memory:")`
+and `DeterministicFakeEmbedding`, requiring zero external API calls, zero credentials, and no
+embedding spend:
 
-Those scripts were deleted as each task closed. **Porting them into a committed suite is the
-largest outstanding quality gap**, and it matters more now that the retrieval pipeline is about to
-get significantly more complex.
+- `tests/test_alias_lifecycle.py`: 10 tests covering:
+  - `test_alias_naming`: format `{base}__{model_slug}__n{docs}`, model change, doc count change, slug normalization.
+  - `test_client_singleton`: singleton client memoization.
+  - `test_alias_swap_and_resolution`: atomic swap and transparent resolution.
+  - `test_cleanup_builds_removes_orphans_and_preserves_target`: sweeping orphans while retaining alias targets and untouched unrelated collections.
+  - `test_ingest_collection_success`: verified upload count matching splits, returning timestamped build name without premature alias creation.
+  - `test_ingest_collection_crash_leaves_zero_residue`: simulated `KeyboardInterrupt` mid-upload deletes in-flight build collection with zero residue.
+  - `test_ingest_collection_count_mismatch_raises_and_cleans_up`: uploaded point count mismatch triggers collection deletion and raises `RuntimeError`.
+  - `test_get_or_create_retriever_cold_and_warm`: cold start builds and aliases, warm start reuses existing build without re-indexing.
+  - `test_startup_sweeps_prior_unaliased_orphans`: startup cleans unaliased builds before existence checks.
+  - `test_live_schema_migration_via_alias_swap`: exercises the exact zero-downtime migration needed for BM25 hybrid indexing (build v2 in parallel, swap alias, sweep v1).
+- `tests/test_agent_routing.py`: 4 tests covering:
+  - `test_system_prompt_guidance`: verifies routing rules for both retrievers and web search fallback.
+  - `test_route_function`: conditional edge routing to `"tools"` or `END`.
+  - `test_compile_graph_prepends_system_message`: verifies `SystemMessage` prepended on agent invocation.
+  - `test_custom_system_prompt_override`: verifies custom prompt parameter in `compile_graph`.
+
+Run tests with `.venv/bin/pytest -v`. Execution time is ~0.2 seconds.
 
 ## Open items
 
@@ -195,14 +208,12 @@ Two consequences follow, and both should be settled before the reranker is built
   service layer needs a durable checkpointer and a `thread_id` per user rather than a constant.
 - **Unbounded history.** One hardcoded `thread_id` accumulates every retrieved chunk, so long
   sessions drift toward the context limit and rising per-turn cost.
-- No system prompt directing the agent between the two retrievers and web search.
 - `.load()[:50]` materializes the entire dataset before slicing.
 - `route` is a hand-rolled reimplementation of `langgraph.prebuilt.tools_condition`.
 - No environment variable validation; `get_client()` is the natural home.
 - No type hints on `preprocess_dataset` and friends.
-- No `requirements.txt` or `pyproject.toml`, so the environment isn't reproducible. Note that
-  `dotenv` is installed alongside `python-dotenv`; only the latter belongs in a dependency list,
-  as `dotenv` is a deprecated redirect stub.
+
+*(Resolved in latest pass: System prompt added in `scripts/main.py` driving routing between retrievers and Brave; committed test suite added under `tests/`; pinned `requirements.txt` generated excluding deprecated `dotenv`).*
 
 ### Known limitations accepted for now
 

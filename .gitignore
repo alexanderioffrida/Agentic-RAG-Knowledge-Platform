@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+.pytest_cache/
 
 # ––– Local Environments –––
 .env
@@ -27,3 +28,4 @@ env/
 
 # ––– Other –––
 docs/
+pyproject.toml
