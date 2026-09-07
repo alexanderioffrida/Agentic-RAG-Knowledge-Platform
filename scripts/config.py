@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 from dataclasses import dataclass
-
-from numpy.dtypes import StrDType
+from typing import ClassVar
 
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_SPARSE_MODEL = "Qdrant/bm25"
 DEFAULT_CHAT_MODEL = "gpt-4o"
+
+DENSE_VECTOR = "dense"      # previously Qdrant's unnamed default
+SPARSE_VECTOR = "sparse"
 
 RETRIEVAL_K = 5
 CANDIDATE_LIMIT = 50
@@ -31,6 +36,16 @@ def require_env(*names: str) -> None:
 @dataclass(frozen=True)
 class IndexConfig:
     """one corpus and every param that determines the index built from it."""
+    FINGERPRINT_FIELDS: ClassVar[tuple[str, ...]] = (
+        "dataset",
+        "content_column",
+        "n_docs",
+        "chunk_size",
+        "chunk_overlap",
+        "embedding_model",
+        "sparse_model"
+    )
+    
     base: str
     dataset: str
     description: str
@@ -39,10 +54,25 @@ class IndexConfig:
     chunk_size: int = 700
     chunk_overlap: int = 50
     embedding_model: str = DEFAULT_EMBEDDING_MODEL
+    sparse_model: str | None = DEFAULT_SPARSE_MODEL
 
     @property
+    def hybrid(self) -> bool:
+        return self.sparse_model is not None
+
+    @property
+    def fingerprint(self) -> str:
+        """eight hex chars covering every index-determining param."""
+        payload = {name: getattr(self, name) for name in self.FINGERPRINT_FIELDS}
+        blob = json.dumps(payload, sort_keys=True).encode()
+        return hashlib.sha256(blob).hexdigest()[:8]
+    
+    @property
     def alias(self) -> str:
-        return f"{self.base}__{slug(self.embedding_model)}__n{self.n_docs}"
+        return (
+            f"{self.base}__{slug(self.embedding_model)}"
+            f"__n{self.n_docs}__{self.fingerprint}"
+        )
 
     @property
     def build_prefix(self) -> str:

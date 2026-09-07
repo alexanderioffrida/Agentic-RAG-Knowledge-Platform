@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
-from pwd import struct_passwd
 
 from langchain_core.embeddings import Embeddings
+from langchain_qdrant.sparse_embeddings import SparseEmbeddings
 from qdrant_client import QdrantClient
-from qdrant_client.grpc import RRF
+from qdrant_client.http import models
 
-from config import  CANDIDATE_LIMIT, RETRIEVAL_K, RRF_K, IndexConfig
+from config import (
+    CANDIDATE_LIMIT, DENSE_VECTOR, RETRIEVAL_K, RRF_K, SPARSE_VECTOR, IndexConfig
+)
 from index import ensure_index
 
 # langchain-qdrant's payload convention, so passages can be read straight off a point.
@@ -51,14 +53,15 @@ class RetrievalResult:
     used_web: bool = False
     escalate: bool = False
 
-def passage_from_point(point, source: str, rank: int) -> Passage:
+def passage_from_point(point, source: str, rank: int, kind: str="dense") -> Passage:
     payload = point.payload or {}
     return Passage(
         id=str(point.id),
         text=payload.get(CONTENT_KEY, ""),
         metadata=dict(payload.get(METADATA_KEY) or {}),
         source=source,
-        dense_rank=rank
+        dense_rank=rank if kind == "dense" else None,
+        sparse_rank=rank if kind == "sparse" else None
     )
 
 def reciprocal_rank_fusion(
@@ -106,17 +109,23 @@ class KnowledgeBase:
         self,
         client: QdrantClient,
         configs: list[IndexConfig] | tuple[IndexConfig, ...],
-        embeddings: Embeddings
+        embeddings: Embeddings,
+        sparse_embeddings: SparseEmbeddings | None = None
     ) -> None:
         self.client = client
         self.configs = configs
         self.embeddings = embeddings
+        self.sparse_embeddings = sparse_embeddings
         self._aliases: dict[str, str] = {}
 
     def ensure_indexes(self, loader=None) -> "KnowledgeBase":
         for cfg in self.configs:
             self._aliases[cfg.base] = ensure_index(
-                self.client, cfg, self.embeddings, loader=loader
+                self.client, 
+                cfg, 
+                self.embeddings, 
+                sparse_embeddings=self.sparse_embeddings,
+                loader=loader
             )
         return self
 
@@ -138,21 +147,40 @@ class KnowledgeBase:
     ) -> list[list[Passage]]:
         """one ranked list per corpus. fusion merges them; nothing chooses between them."""
         vector = self.embeddings.embed_query(query)
-        rankings = []
-        for cfg in self._selected(sources):
-            points = self.client.query_points(
-                collection_name=self._aliases[cfg.base],
-                query=vector,
-                limit=limit,
-                with_payload=True
-            ).points
-            rankings.append(
-                [
-                    passage_from_point(point, cfg.base, rank)
-                    for rank, point in enumerate(points, start=1)
-                ]
-            )
-        return rankings
+        return [
+            self._search(cfg, vector, DENSE_VECTOR, limit, "dense")
+            for cfg in self._selected(sources)
+        ]
+
+    def sparse_rankings(
+        self,
+        query: str,
+        limit: int = CANDIDATE_LIMIT,
+        sources: list[str] | None = None
+    ) -> list[list[Passage]]:
+        """one ranked list per corpus. fusion merges them; nothing chooses between them."""
+        if self.sparse_embeddings is None:
+            return []
+        sparse = self.sparse_embeddings.embed_query(query)
+        vector = models.SparseVector(indices=sparse.indices, values=sparse.values)
+        return [
+            self._search(cfg, vector, SPARSE_VECTOR, limit, "sparse")
+            for cfg in self._selected(sources)
+            if cfg.hybrid
+        ]
+
+    def _search(self, cfg, query_vector, using: str, limit: int, kind: str):
+        points = self.client.query_points(
+            collection_name=self._aliases[cfg.base],
+            query=query_vector,
+            using=using,
+            limit=limit,
+            with_payload=True
+        ).points
+        return [
+            passage_from_point(point, cfg.base, rank, kind=kind)
+            for rank, point in enumerate(points, start=1)
+        ]
 
     def retrieve(
         self,
@@ -162,6 +190,7 @@ class KnowledgeBase:
     ) -> RetrievalResult:
         """the single entry point. the agent, the api, and the eval harness all call this."""
         rankings = self.dense_rankings(query, sources=sources)
+        rankings += self.sparse_rankings(query, sources=sources)
         fused = reciprocal_rank_fusion(rankings)
         # confidence stays None until a cross-encoder is in the path
         # RRF scores are a narrow function of rank and say nothing about abs relevance,

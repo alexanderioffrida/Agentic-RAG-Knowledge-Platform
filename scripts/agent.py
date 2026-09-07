@@ -14,7 +14,7 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from config import DEFAULT_CHAT_MODEL
-from retrieval import KnowledgeBase, RetrievalResult, format_for_llm, format_for_llm
+from retrieval import KnowledgeBase, RetrievalResult, format_for_llm
 
 SYSTEM_PROMPT = """You answer questions about the HuggingFace ecosystem and the \
 transformers library, grounded in retrieved documentation.

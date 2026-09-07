@@ -10,17 +10,20 @@ from typing import Callable, Iterable
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_qdrant import QdrantVectorStore
+from langchain_qdrant import QdrantVectorStore, RetrievalMode
+from langchain_qdrant.sparse_embeddings import SparseEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import (
     CreateAlias,
     CreateAliasOperation,
     Distance,
+    Modifier,
+    SparseVectorParams,
     VectorParams
 )
 
-from config import IndexConfig, require_env
+from config import DENSE_VECTOR, SPARSE_VECTOR, IndexConfig, require_env
 
 BUILD_STAMP = "%Y%m%dT%H%M%S%fZ"
 _BUILD_RE = re.compile(r"__build_(\d{8}T\d{12}Z)_[0-9a-f]{8}$")
@@ -43,6 +46,36 @@ def split_documents(docs: Iterable[Document], cfg: IndexConfig) -> list[Document
         disallowed_special=()
     )
     return splitter.split_documents(list(docs))
+
+def build_sparse_embeddings(cfg: IndexConfig) -> SparseEmbeddings | None:
+    """the BM25 encoder, or None for a dense-only config. imported lazily."""
+    if not cfg.hybrid:
+        return None
+    from langchain_qdrant import FastEmbedSparse
+
+    return FastEmbedSparse(model_name=cfg.sparse_model)
+
+def require_sparse_encoder(
+    cfg: IndexConfig, sparse_embeddings: SparseEmbeddings | None
+) -> None:
+    """a hybrid config with no encoder retrieves dense-only and reports nothing. refuse it."""
+    if cfg.hybrid and sparse_embeddings is None:
+        raise ValueError(
+            f"'{cfg.alias}' is configured for hybrid retrieval "
+            f"(sparse_model={cfg.sparse_model!r}) but no sparse encoder was supplied"
+        )
+
+def collection_config(cfg: IndexConfig, dimension: int) -> dict:
+    """vector configuration for a build collection."""
+    sparse: dict[str, SparseVectorParams] = {}
+    if cfg.hybrid:
+        sparse[SPARSE_VECTOR] = SparseVectorParams(modifier=Modifier.IDF)
+    return {
+        "vectors_config": {
+            DENSE_VECTOR: VectorParams(size=dimension, distance=Distance.COSINE)
+        },
+        "sparse_vectors_config": sparse
+    }
 
 def load_hf_dataset(cfg: IndexConfig) -> list[Document]:
     """default doc source."""
@@ -121,6 +154,7 @@ def build_index(
     client: QdrantClient,
     cfg: IndexConfig,
     embeddings: Embeddings,
+    sparse_embeddings: SparseEmbeddings | None = None,
     loader: Callable[[IndexConfig], list[Document]] | None = None
 ) -> str:
     """creates a build collection, uploads splits, verifies the count, returns its name."""
@@ -130,14 +164,23 @@ def build_index(
     documents = (loader or load_hf_dataset)(cfg)
     splits = split_documents(documents, cfg)
 
+    # deliberately placed before create_collection
+    require_sparse_encoder(cfg, sparse_embeddings)
+
     build = _build_name(cfg)
     client.create_collection(
-        build, VectorParams(size=dimension, distance=Distance.COSINE)
+        build, **collection_config(cfg, dimension)
     )
 
     try:
         store = QdrantVectorStore(
-            client=client, collection_name=build, embedding=embeddings
+            client=client, 
+            collection_name=build, 
+            embedding=embeddings,
+            sparse_embedding=sparse_embeddings,
+            retrieval_mode=RetrievalMode.HYBRID if cfg.hybrid else RetrievalMode.DENSE,
+            vector_name=DENSE_VECTOR,
+            sparse_vector_name=SPARSE_VECTOR
         )
         store.add_documents(splits)
         uploaded = client.count(build, exact=True).count
@@ -157,16 +200,20 @@ def ensure_index(
     client: QdrantClient,
     cfg: IndexConfig,
     embeddings: Embeddings,
+    sparse_embeddings: SparseEmbeddings | None = None,
     loader: Callable[[IndexConfig], list[Document]] | None = None
 ) -> str:
     """returns the alias, guaranteed to resolve to a complete index."""
+    # the warm-start return below skips build_index, so the guard has to run first:
+    # a hybrid alias was built with sparse vectors that dense-only retrieval never reads.
+    require_sparse_encoder(cfg, sparse_embeddings)
     cleanup_builds(client, cfg)
 
     if client.collection_exists(cfg.alias):
         print(f"-> Alias '{cfg.alias}' found. Loading existing index...")
         return cfg.alias
     
-    build = build_index(client, cfg, embeddings, loader=loader)
+    build = build_index(client, cfg, embeddings, sparse_embeddings=sparse_embeddings, loader=loader)
     swap_alias(client, cfg.alias, build)
     cleanup_builds(client, cfg)
     print(f"-> Alias '{cfg.alias}' now points at '{build}'")

@@ -5,6 +5,7 @@ langchain-qdrant==1.1.0
 langchain-text-splitters==1.1.2
 langgraph==1.2.11
 qdrant-client==1.19.0
+fastembed
 datasets==5.0.1
 python-dotenv
 tiktoken
