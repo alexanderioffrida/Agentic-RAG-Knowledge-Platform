@@ -24,7 +24,7 @@ from qdrant_client.http.models import (
     VectorParams
 )
 
-from config import DENSE_VECTOR, SPARSE_VECTOR, IndexConfig, require_env
+from config import DENSE_VECTOR, QDRANT_TIMEOUT, SPARSE_VECTOR, IndexConfig, require_env
 
 BUILD_STAMP = "%Y%m%dT%H%M%S%fZ"
 _BUILD_RE = re.compile(r"__build_(\d{8}T\d{12}Z)_[0-9a-f]{8}$")
@@ -36,7 +36,11 @@ def get_client():
     global _client
     if _client is None:
         require_env("QDRANT_URL", "QDRANT_KEY")
-        _client = QdrantClient(url=os.getenv("QDRANT_URL"), api_key=os.getenv("QDRANT_KEY"))
+        _client = QdrantClient(
+            url=os.getenv("QDRANT_URL"),
+            api_key=os.getenv("QDRANT_KEY"),
+            timeout=QDRANT_TIMEOUT
+        )
     return _client
 
 def split_documents(docs: Iterable[Document], cfg: IndexConfig) -> list[Document]:
@@ -86,6 +90,11 @@ def require_encoders(cfg: IndexConfig, encoders: Encoders) -> None:
     a mismatch is otherwise invisible: the collection is sized from whatever encoder it
     was handed, so it stays self-consistent, and sparse vectors have no width to check
     at all. the wrong model produces plausible rankings under a name that says otherwise.
+
+    only a hybrid config has a stake in the sparse encoder. a dense-only corpus gets no
+    sparse vector from collection_config and is skipped by sparse_rankings, so it never
+    touches the encoder and has no grounds to object to one being loaded for its
+    neighbours. checking it unconditionally would forbid mixing corpora for no reason.
     """
     if encoders.dense_model != cfg.embedding_model:
         raise ValueError(
@@ -93,7 +102,10 @@ def require_encoders(cfg: IndexConfig, encoders: Encoders) -> None:
             f"but was handed an encoder for {encoders.dense_model!r}"
         )
 
-    if cfg.hybrid and encoders.sparse is None:
+    if not cfg.hybrid:
+        return
+
+    if encoders.sparse is None:
         raise ValueError(
             f"'{cfg.alias}' is configured for hybrid retrieval "
             f"(sparse_model={cfg.sparse_model!r}) but no sparse encoder was supplied"

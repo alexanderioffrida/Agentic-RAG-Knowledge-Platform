@@ -32,7 +32,7 @@ class Passage:
     @property
     def origin(self) -> str:
         """best available human-facing pointer at where this chunk came from."""
-        for key in ("source", "url", "path"):
+        for key in ("source", "url", "path", "filename"):
             value = self.metadata.get(key)
             if value:
                 return str(value)

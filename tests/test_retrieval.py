@@ -141,6 +141,34 @@ def test_sources_filter_restricts_both_retrievers(client, encoders, loader):
     assert {p.source for p in result.passages} == {"alpha"}
 
 
+def test_hybrid_and_dense_only_corpora_share_one_encoder_set(client, encoders, loader):
+    """A corpus that opts out of BM25 has no stake in what encoders are loaded.
+
+    The case this is really for: PDFs or scanned text where BM25 is not worth it, served
+    by the same process as the doc corpora where it is.
+    """
+    from retrieval import KnowledgeBase
+
+    alpha, beta = _corpora(encoders)
+    dense_only = dataclasses.replace(beta, sparse_model=None)
+
+    kb = KnowledgeBase(
+        client, [alpha, dense_only], encoders
+    ).ensure_indexes(loader=loader)
+
+    params = client.get_collection(dense_only.alias).config.params
+    assert not params.sparse_vectors, "the opted-out corpus gets no sparse vector"
+
+    assert len(kb.dense_rankings("transformers", limit=4)) == 2
+    sparse = kb.sparse_rankings("transformers", limit=4)
+    assert len(sparse) == 1, "only the hybrid corpus contributes a sparse ranking"
+    assert sparse[0][0].source == "alpha"
+
+    result = kb.retrieve("transformers pipelines", k=5)
+    assert len(result.passages) == 5
+    assert {p.source for p in result.passages} <= {"alpha", "beta"}
+
+
 def test_knowledge_base_refuses_a_corpus_its_encoders_do_not_match(client, encoders):
     """Validation at construction, not at first query.
 

@@ -33,7 +33,7 @@ passages do not contain the answer, say so plainly rather than filling the gap."
 
 class State(TypedDict):
     """data carried through the graph. `add_messages` appends rather than overwrites."""
-    messages = Annotated[list, add_messages]
+    messages: Annotated[list, add_messages]
 
 def make_search_tool(kb: KnowledgeBase):
     """builds the one retrieval tool, closed over a KnowledgeBase."""

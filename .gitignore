@@ -25,7 +25,3 @@ env/
 .idea/
 *.swp
 *.swo
-
-# ––– Other –––
-docs/
-pyproject.toml

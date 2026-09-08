@@ -20,6 +20,10 @@ RETRIEVAL_K = 5
 CANDIDATE_LIMIT = 50
 RRF_K = 60
 
+# qdrant-client leaves this to httpx, whose default is 5s. that is fine for queries and
+# far too short for ingest upserts against a cloud instance, which time out mid-build.
+QDRANT_TIMEOUT = 60
+
 def slug(value: str) -> str:
     """lowercases and collapses each run of non-alphanumerics into one underscore."""
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_") # value is the embedding model
@@ -82,12 +86,14 @@ CORPORA: tuple[IndexConfig, ...] = (
     IndexConfig(
         base="hf_docs",
         dataset="m-ric/huggingface_doc",
-        description="HuggingFace documentation, including guides and Python code."
+        description="HuggingFace documentation, including guides and Python code.",
+        n_docs=2000
     ),
     IndexConfig(
         base="transformers_docs",
         dataset="m-ric/transformers_documentation_en",
-        description="Documentation for the transformers library."
+        description="Documentation for the transformers library.",
+        n_docs=2000
     )
 )
 
