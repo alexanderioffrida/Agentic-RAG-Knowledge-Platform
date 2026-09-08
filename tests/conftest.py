@@ -6,8 +6,15 @@ from langchain_qdrant.sparse_embeddings import SparseEmbeddings, SparseVector
 from qdrant_client import QdrantClient
 
 from config import IndexConfig
+from index import Encoders
 
 DIMENSION = 32
+
+# the fakes name themselves. a config that declares these is telling the truth, and the
+# alias reads test_docs__fake_dense_32__n50__... instead of claiming an OpenAI model it
+# has never called.
+FAKE_DENSE_MODEL = "fake-dense-32"
+FAKE_SPARSE_MODEL = "fake-bm25"
 
 
 @pytest.fixture
@@ -25,7 +32,10 @@ def embeddings():
 
 @pytest.fixture
 def cfg():
-    return IndexConfig(base="test_docs", dataset="fake/dataset", description="fixture corpus")
+    return IndexConfig(
+        base="test_docs", dataset="fake/dataset", description="fixture corpus",
+        embedding_model=FAKE_DENSE_MODEL, sparse_model=FAKE_SPARSE_MODEL,
+    )
 
 
 @pytest.fixture
@@ -80,5 +90,20 @@ def sparse_embeddings():
 def dense_cfg():
     return IndexConfig(
         base="test_docs", dataset="fake/dataset", description="dense only",
-        sparse_model=None,
+        embedding_model=FAKE_DENSE_MODEL, sparse_model=None,
     )
+
+
+@pytest.fixture
+def encoders(embeddings, sparse_embeddings):
+    """exactly what `cfg` declares, so `require_encoders` lets it through."""
+    return Encoders(
+        dense=embeddings, dense_model=FAKE_DENSE_MODEL,
+        sparse=sparse_embeddings, sparse_model=FAKE_SPARSE_MODEL,
+    )
+
+
+@pytest.fixture
+def dense_encoders(embeddings):
+    """what `dense_cfg` declares. also the stand-in for 'forgot the sparse encoder'."""
+    return Encoders(dense=embeddings, dense_model=FAKE_DENSE_MODEL)

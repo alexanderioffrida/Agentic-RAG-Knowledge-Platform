@@ -5,15 +5,13 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 
-from langchain_core.embeddings import Embeddings
-from langchain_qdrant.sparse_embeddings import SparseEmbeddings
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
 from config import (
     CANDIDATE_LIMIT, DENSE_VECTOR, RETRIEVAL_K, RRF_K, SPARSE_VECTOR, IndexConfig
 )
-from index import ensure_index
+from index import Encoders, ensure_index, require_encoders
 
 # langchain-qdrant's payload convention, so passages can be read straight off a point.
 CONTENT_KEY = "page_content"
@@ -109,23 +107,25 @@ class KnowledgeBase:
         self,
         client: QdrantClient,
         configs: list[IndexConfig] | tuple[IndexConfig, ...],
-        embeddings: Embeddings,
-        sparse_embeddings: SparseEmbeddings | None = None
+        encoders: Encoders
     ) -> None:
+        # one set of encoders serves every corpus, because retrieve() fuses them into a
+        # single pool and rankings from two embedding spaces are not comparable. so every
+        # config has to declare these models. checked here, at startup, rather than at
+        # first query: under the service layer that is the difference between a failed
+        # boot and a wrong answer served for the life of the process.
+        for cfg in configs:
+            require_encoders(cfg, encoders)
+
         self.client = client
         self.configs = configs
-        self.embeddings = embeddings
-        self.sparse_embeddings = sparse_embeddings
+        self.encoders = encoders
         self._aliases: dict[str, str] = {}
 
     def ensure_indexes(self, loader=None) -> "KnowledgeBase":
         for cfg in self.configs:
             self._aliases[cfg.base] = ensure_index(
-                self.client, 
-                cfg, 
-                self.embeddings, 
-                sparse_embeddings=self.sparse_embeddings,
-                loader=loader
+                self.client, cfg, self.encoders, loader=loader
             )
         return self
 
@@ -146,7 +146,7 @@ class KnowledgeBase:
         sources: list[str] | None = None
     ) -> list[list[Passage]]:
         """one ranked list per corpus. fusion merges them; nothing chooses between them."""
-        vector = self.embeddings.embed_query(query)
+        vector = self.encoders.dense.embed_query(query)
         return [
             self._search(cfg, vector, DENSE_VECTOR, limit, "dense")
             for cfg in self._selected(sources)
@@ -159,9 +159,9 @@ class KnowledgeBase:
         sources: list[str] | None = None
     ) -> list[list[Passage]]:
         """one ranked list per corpus. fusion merges them; nothing chooses between them."""
-        if self.sparse_embeddings is None:
+        if self.encoders.sparse is None:
             return []
-        sparse = self.sparse_embeddings.embed_query(query)
+        sparse = self.encoders.sparse.embed_query(query)
         vector = models.SparseVector(indices=sparse.indices, values=sparse.values)
         return [
             self._search(cfg, vector, SPARSE_VECTOR, limit, "sparse")

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from dotenv import load_dotenv
-from langchain_openai import OpenAIEmbeddings
 
 from agent import build_graph
-from config import CORPORA, DEFAULT_EMBEDDING_MODEL, require_env
-from index import build_sparse_embeddings, get_client
+from config import CORPORA, require_env
+from index import Encoders, get_client
 from retrieval import KnowledgeBase
 
 EXIT_WORDS = {"quit", "exit", "q"}
@@ -27,9 +26,10 @@ def main() -> None:
     load_dotenv()
     require_env("QDRANT_URL", "QDRANT_KEY", "OPENAI_API_KEY")
 
-    embeddings = OpenAIEmbeddings(model=DEFAULT_EMBEDDING_MODEL)
-    sparse = build_sparse_embeddings(CORPORA[0])
-    kb = KnowledgeBase(get_client(), CORPORA, embeddings, sparse).ensure_indexes()
+    # built from one corpus because one set of encoders serves them all; KnowledgeBase
+    # refuses the rest if they declare anything different, so the choice can't drift.
+    encoders = Encoders.for_config(CORPORA[0])
+    kb = KnowledgeBase(get_client(), CORPORA, encoders).ensure_indexes()
     graph = build_graph(kb)
 
     config = {"configurable": {"thread_id": "cli_session"}}

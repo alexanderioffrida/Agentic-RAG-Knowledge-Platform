@@ -3,6 +3,7 @@
 Personal notes on urgent items to be fixed / implemented.
 
 ## URGENT
+
 **Candidate Pooling.** HF docs, transformers docs, and web are three separate tools, and the candidate pool structurally cannot exist. The LLM commits to a source *before* any scoring happens, and the reranker would only ever see candidates from whichever tool's pool got picked. I'd be reranking within a source rather than across sources.
 **Parallel Retrieval / RAG Accuracy.** Query both the BM25 sparse index (once it's made) and the dense vector index at the same time to fetch top candidate list. Then apply RRF (No Score Normalization Needed). Apply reranking with BGE cross-encoder reranker.
 

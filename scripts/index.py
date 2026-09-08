@@ -7,6 +7,7 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Iterable
+from dataclasses import dataclass
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -55,14 +56,53 @@ def build_sparse_embeddings(cfg: IndexConfig) -> SparseEmbeddings | None:
 
     return FastEmbedSparse(model_name=cfg.sparse_model)
 
-def require_sparse_encoder(
-    cfg: IndexConfig, sparse_embeddings: SparseEmbeddings | None
-) -> None:
-    """a hybrid config with no encoder retrieves dense-only and reports nothing. refuse it."""
-    if cfg.hybrid and sparse_embeddings is None:
+@dataclass(frozen=True)
+class Encoders:
+    """the encoder objects, plus the model names they claim to implement.
+    
+    the names are declared rather than read off the objects: FastEmbedSparse drops
+    model_name into a private SparseTextEmbedding and a test fake has no name at all.
+    declaring is the point – the claim is what gets checked against the config."""
+    dense: Embeddings
+    dense_model: str
+    sparse: SparseEmbeddings | None = None
+    sparse_model: str | None = None
+
+    @classmethod
+    def for_config(cls, cfg: IndexConfig) -> "Encoders":
+        """the production path, where the config is what decides."""
+        from langchain_openai import OpenAIEmbeddings
+
+        return cls(
+            dense=OpenAIEmbeddings(model=cfg.embedding_model),
+            dense_model=cfg.embedding_model,
+            sparse=build_sparse_embeddings(cfg),
+            sparse_model=cfg.sparse_model
+        )
+
+def require_encoders(cfg: IndexConfig, encoders: Encoders) -> None:
+    """the alias names the models cfg declares. refuse encoders that are anything else.
+
+    a mismatch is otherwise invisible: the collection is sized from whatever encoder it
+    was handed, so it stays self-consistent, and sparse vectors have no width to check
+    at all. the wrong model produces plausible rankings under a name that says otherwise.
+    """
+    if encoders.dense_model != cfg.embedding_model:
+        raise ValueError(
+            f"'{cfg.alias}' declares embedding_model={cfg.embedding_model!r} "
+            f"but was handed an encoder for {encoders.dense_model!r}"
+        )
+
+    if cfg.hybrid and encoders.sparse is None:
         raise ValueError(
             f"'{cfg.alias}' is configured for hybrid retrieval "
             f"(sparse_model={cfg.sparse_model!r}) but no sparse encoder was supplied"
+        )
+
+    if encoders.sparse_model != cfg.sparse_model:
+        raise ValueError(
+            f"'{cfg.alias}' declares sparse_model={cfg.sparse_model!r} "
+            f"but was handed an encoder for {encoders.sparse_model!r}"
         )
 
 def collection_config(cfg: IndexConfig, dimension: int) -> dict:
@@ -153,19 +193,19 @@ def cleanup_builds(
 def build_index(
     client: QdrantClient,
     cfg: IndexConfig,
-    embeddings: Embeddings,
-    sparse_embeddings: SparseEmbeddings | None = None,
+    encoders: Encoders,
     loader: Callable[[IndexConfig], list[Document]] | None = None
 ) -> str:
     """creates a build collection, uploads splits, verifies the count, returns its name."""
     print(f"-> Building index for '{cfg.alias}' from '{cfg.dataset}'...")
-    dimension = len(embeddings.embed_query("dimension_probe"))
+    # deliberately first: ahead of the dimension probe, the loader, and create_collection,
+    # so a mismatch costs neither an embedding call nor a dataset download.
+    require_encoders(cfg, encoders)
+
+    dimension = len(encoders.dense.embed_query("dimension_probe"))
 
     documents = (loader or load_hf_dataset)(cfg)
     splits = split_documents(documents, cfg)
-
-    # deliberately placed before create_collection
-    require_sparse_encoder(cfg, sparse_embeddings)
 
     build = _build_name(cfg)
     client.create_collection(
@@ -176,8 +216,8 @@ def build_index(
         store = QdrantVectorStore(
             client=client, 
             collection_name=build, 
-            embedding=embeddings,
-            sparse_embedding=sparse_embeddings,
+            embedding=encoders.dense,
+            sparse_embedding=encoders.sparse,
             retrieval_mode=RetrievalMode.HYBRID if cfg.hybrid else RetrievalMode.DENSE,
             vector_name=DENSE_VECTOR,
             sparse_vector_name=SPARSE_VECTOR
@@ -199,21 +239,20 @@ def build_index(
 def ensure_index(
     client: QdrantClient,
     cfg: IndexConfig,
-    embeddings: Embeddings,
-    sparse_embeddings: SparseEmbeddings | None = None,
+    encoders: Encoders,
     loader: Callable[[IndexConfig], list[Document]] | None = None
 ) -> str:
     """returns the alias, guaranteed to resolve to a complete index."""
     # the warm-start return below skips build_index, so the guard has to run first:
-    # a hybrid alias was built with sparse vectors that dense-only retrieval never reads.
-    require_sparse_encoder(cfg, sparse_embeddings)
+    # the existing alias was built to cfg's declared models and will be queried with these.
+    require_encoders(cfg, encoders)
     cleanup_builds(client, cfg)
 
     if client.collection_exists(cfg.alias):
         print(f"-> Alias '{cfg.alias}' found. Loading existing index...")
         return cfg.alias
     
-    build = build_index(client, cfg, embeddings, sparse_embeddings=sparse_embeddings, loader=loader)
+    build = build_index(client, cfg, encoders, loader=loader)
     swap_alias(client, cfg.alias, build)
     cleanup_builds(client, cfg)
     print(f"-> Alias '{cfg.alias}' now points at '{build}'")
