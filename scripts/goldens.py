@@ -16,11 +16,14 @@ from retrieval import CONTENT_KEY, KnowledgeBase, chunk_key
 GOLDENS_PATH = Path(__file__).resolve().parents[1] / "evals" / "goldens.jsonl"
 GENERATOR_MODEL = "gpt-4o"
 
-# the binding constraint is gpt-4o's tokens-per-minute ceiling, not concurrency. one
-# prompt is a ~700-token chunk plus instructions, so a 30k TPM account sustains roughly
-# 35 requests/min and an unpaced batch of 80 spends the whole minute's budget in seconds.
-# 0.5/s leaves headroom, because a request's real cost varies with the chunk it carries.
-GENERATOR_RPS = 0.5
+# the constraint is gpt-4o's tokens-per-minute ceiling, not concurrency: an unpaced batch
+# spends a minute's budget in seconds and the 429 loses every question generated so far.
+# pacing is derived from the ceiling rather than hardcoded, so a tier change is one edit.
+GENERATOR_TPM = 450_000            # this account's gpt-4o limit
+TOKENS_PER_PROMPT = 900            # a ~700-token chunk plus instructions, rounded up
+# half the ceiling. at 80 prompts this is not the binding constraint — latency and
+# max_concurrency are — and it only starts to bite if PER_CORPUS or CORPORA grows.
+GENERATOR_RPS = GENERATOR_TPM / TOKENS_PER_PROMPT / 60 / 2
 
 # below this a chunk is usually a heading, a nav stub or a license header — nothing a
 # real question could be about, and a question written from one measures nothing.
