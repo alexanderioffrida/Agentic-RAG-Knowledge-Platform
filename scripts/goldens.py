@@ -16,6 +16,12 @@ from retrieval import CONTENT_KEY, KnowledgeBase, chunk_key
 GOLDENS_PATH = Path(__file__).resolve().parents[1] / "evals" / "goldens.jsonl"
 GENERATOR_MODEL = "gpt-4o"
 
+# the binding constraint is gpt-4o's tokens-per-minute ceiling, not concurrency. one
+# prompt is a ~700-token chunk plus instructions, so a 30k TPM account sustains roughly
+# 35 requests/min and an unpaced batch of 80 spends the whole minute's budget in seconds.
+# 0.5/s leaves headroom, because a request's real cost varies with the chunk it carries.
+GENERATOR_RPS = 0.5
+
 # below this a chunk is usually a heading, a nav stub or a license header — nothing a
 # real question could be about, and a question written from one measures nothing.
 MIN_CHARS = 400
@@ -91,10 +97,19 @@ def sample_chunks(
     return texts[:n]
 
 def generate(texts: list[str], cfg: IndexConfig) -> list[Golden]:
-    """one call per (chunk, style), batched. gpt-4o at temperature 0."""
+    """one call per (chunk, style), batched and paced. gpt-4o at temperature 0."""
+    from langchain_core.rate_limiters import InMemoryRateLimiter
     from langchain_openai import ChatOpenAI
 
-    llm = ChatOpenAI(model=GENERATOR_MODEL, temperature=0)
+    # max_bucket_size=1 so an idle gap cannot accrue credit and spend it as a burst,
+    # which is the shape of the failure the limiter exists to prevent.
+    llm = ChatOpenAI(
+        model=GENERATOR_MODEL,
+        temperature=0,
+        rate_limiter=InMemoryRateLimiter(
+            requests_per_second=GENERATOR_RPS, max_bucket_size=1
+        )
+    )
     jobs = [(text, style) for text in texts for style in STYLES]
     prompts = [
         PROMPT.format(style=STYLES[style], chunk=text) for text, style in jobs
