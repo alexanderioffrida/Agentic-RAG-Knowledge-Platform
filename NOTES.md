@@ -4,8 +4,8 @@ Personal notes on urgent items to be fixed / implemented.
 
 ## URGENT
 
-**Candidate Pooling.** HF docs, transformers docs, and web are three separate tools, and the candidate pool structurally cannot exist. The LLM commits to a source *before* any scoring happens, and the reranker would only ever see candidates from whichever tool's pool got picked. I'd be reranking within a source rather than across sources.
-**Parallel Retrieval / RAG Accuracy.** Query both the BM25 sparse index (once it's made) and the dense vector index at the same time to fetch top candidate list. Then apply RRF (No Score Normalization Needed). Apply reranking with BGE cross-encoder reranker.
+**Candidate Pooling.** ~~HF docs, transformers docs, and web are three separate tools, and the candidate pool structurally cannot exist. The LLM commits to a source *before* any scoring happens, and the reranker would only ever see candidates from whichever tool's pool got picked.~~ I'd be reranking within a source rather than across sources.
+**Parallel Retrieval / RAG Accuracy.** ~~Query both the BM25 sparse index (once it's made) and the dense vector index at the same time to fetch top candidate list. Then apply RRF (No Score Normalization Needed).~~ Apply reranking with BGE cross-encoder reranker.
 
 ## Primary
 
@@ -26,7 +26,7 @@ Personal notes on urgent items to be fixed / implemented.
 
 ## NEXT STEPS
 
-1. BM25 sparse retrieval plus Reciprocal Rank Fusion to merge it with my dense results. This is the "hybrid" in hybrid search and it's the first gap.
+1. ~~BM25 sparse retrieval plus Reciprocal Rank Fusion to merge it with my dense results. This is the "hybrid" in hybrid search and it's the first gap.~~
 2. BGE cross-encoder reranker sitting after fusion, rescoring the merged candidates before they hit the LLM context window.
 3. Citation formatting, so my FastAPI response returns structured JSON with source metadata attached to each answer chunk, not just the answer text.
 4. The FastAPI layer itself with persisent checkpointer (which I already flagged) and per-user thread IDs.

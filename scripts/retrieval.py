@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 
@@ -17,6 +18,16 @@ from index import Encoders, ensure_index, require_encoders
 CONTENT_KEY = "page_content"
 METADATA_KEY = "metadata"
 
+def chunk_key(text: str) -> str:
+    """a chunk's durable identity: a hash of its text, not its point id.
+
+    point ids are uuid4 assigned at ingest, so every rebuild issues new ones. anything
+    that has to still mean the same chunk tomorrow — a golden set's answer key, a cached
+    rerank score — keys on this instead. it survives any rebuild that does not change
+    chunking, and a change that does change chunking moves `chunk_fingerprint`.
+    """
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
 @dataclass
 class Passage:
     """one retrieved chunk, carrying every score it picks up on the way through, a single obj that accumulates scores stage by stage."""
@@ -28,6 +39,11 @@ class Passage:
     sparse_rank: int | None = None
     fused_score: float | None = None
     rerank_score: float | None = None
+
+    @property
+    def key(self) -> str:
+        """identity across rebuilds. `id` is only unique within one build."""
+        return chunk_key(self.text)
 
     @property
     def origin(self) -> str:

@@ -49,6 +49,17 @@ class IndexConfig:
         "embedding_model",
         "sparse_model"
     )
+
+    # the subset that decides whether a chunk's *text* is what it was. a golden set keyed
+    # on chunk text survives an n_docs bump or a model swap; it does not survive a
+    # resplit. both hashes come off one helper so the narrow claim cannot drift from the
+    # wide one.
+    CHUNK_FIELDS: ClassVar[tuple[str, ...]] = (
+        "dataset",
+        "content_column",
+        "chunk_size",
+        "chunk_overlap"
+    )
     
     base: str
     dataset: str
@@ -64,12 +75,20 @@ class IndexConfig:
     def hybrid(self) -> bool:
         return self.sparse_model is not None
 
+    def _hash(self, names: tuple[str, ...]) -> str:
+        payload = {name: getattr(self, name) for name in names}
+        blob = json.dumps(payload, sort_keys=True).encode()
+        return hashlib.sha256(blob).hexdigest()[:8]
+
     @property
     def fingerprint(self) -> str:
         """eight hex chars covering every index-determining param."""
-        payload = {name: getattr(self, name) for name in self.FINGERPRINT_FIELDS}
-        blob = json.dumps(payload, sort_keys=True).encode()
-        return hashlib.sha256(blob).hexdigest()[:8]
+        return self._hash(self.FINGERPRINT_FIELDS)
+
+    @property
+    def chunk_fingerprint(self) -> str:
+        """eight hex chars covering only what determines the chunk text."""
+        return self._hash(self.CHUNK_FIELDS)
     
     @property
     def alias(self) -> str:

@@ -134,7 +134,7 @@ def load_hf_dataset(cfg: IndexConfig) -> list[Document]:
     from langchain_community.document_loaders import HuggingFaceDatasetLoader
 
     loader = HuggingFaceDatasetLoader(cfg.dataset, cfg.content_column)
-    return loader.load()[: cfg.n_docs]
+    return loader.load()[: cfg.n_docs] # if the loader ever shuffles or randomly samples, move n_docs into CHUNK_FIELDS
 
 # ––– Build Naming –––
 
