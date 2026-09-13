@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from agent import build_graph
 from config import CORPORA, require_env
-from index import Encoders, get_client
+from index import Encoders, Reranker, get_client
 from retrieval import KnowledgeBase
 
 EXIT_WORDS = {"quit", "exit", "q"}
@@ -29,7 +29,12 @@ def main() -> None:
     # built from one corpus because one set of encoders serves them all; KnowledgeBase
     # refuses the rest if they declare anything different, so the choice can't drift.
     encoders = Encoders.for_config(CORPORA[0])
-    kb = KnowledgeBase(get_client(), CORPORA, encoders).ensure_indexes()
+    # built here rather than lazily on first query: the model is a ~1GB download and a
+    # multi-second load, and paying that inside a user's first turn looks like a hang.
+    reranker = Reranker.for_model()
+    kb = KnowledgeBase(
+        get_client(), CORPORA, encoders, reranker=reranker
+    ).ensure_indexes()
     graph = build_graph(kb)
 
     config = {"configurable": {"thread_id": "cli_session"}}

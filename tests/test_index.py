@@ -208,3 +208,62 @@ def test_fingerprint_covers_chunking_but_not_description(cfg):
     assert dataclasses.replace(cfg, chunk_overlap=0).alias != cfg.alias
     assert dataclasses.replace(cfg, sparse_model=None).alias != cfg.alias
     assert dataclasses.replace(cfg, description="reworded").alias == cfg.alias
+
+
+# --- transport retry ----------------------------------------------------------------
+
+def test_qdrant_retry_returns_on_the_first_success():
+    from index import with_qdrant_retry
+
+    calls = {"n": 0}
+
+    def op():
+        calls["n"] += 1
+        return "ok"
+
+    assert with_qdrant_retry(op, delay=0) == "ok"
+    assert calls["n"] == 1
+
+
+def test_qdrant_retry_recovers_from_connect_timeouts():
+    """the eval case: keep-alive dies mid-rerank, the next query_points has to reconnect."""
+    from qdrant_client.http.exceptions import ResponseHandlingException
+
+    from index import with_qdrant_retry
+
+    calls = {"n": 0}
+
+    def op():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise ResponseHandlingException(TimeoutError("timed out"))
+        return "ok"
+
+    assert with_qdrant_retry(op, attempts=3, delay=0) == "ok"
+    assert calls["n"] == 3
+
+
+def test_qdrant_retry_gives_up_after_the_last_attempt():
+    from qdrant_client.http.exceptions import ResponseHandlingException
+
+    from index import with_qdrant_retry
+
+    def op():
+        raise ResponseHandlingException(TimeoutError("timed out"))
+
+    with pytest.raises(ResponseHandlingException, match="timed out"):
+        with_qdrant_retry(op, attempts=2, delay=0)
+
+
+def test_qdrant_retry_does_not_swallow_non_transport_errors():
+    from index import with_qdrant_retry
+
+    calls = {"n": 0}
+
+    def op():
+        calls["n"] += 1
+        raise ValueError("wrong collection")
+
+    with pytest.raises(ValueError, match="wrong collection"):
+        with_qdrant_retry(op, attempts=3, delay=0)
+    assert calls["n"] == 1

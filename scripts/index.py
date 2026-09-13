@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import os
 import re
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Protocol, TypeVar
 from dataclasses import dataclass
 
 from langchain_core.documents import Document
@@ -24,7 +25,18 @@ from qdrant_client.http.models import (
     VectorParams
 )
 
-from config import DENSE_VECTOR, QDRANT_TIMEOUT, SPARSE_VECTOR, IndexConfig, require_env
+from qdrant_client.http.exceptions import ResponseHandlingException
+
+from config import (
+    DEFAULT_RERANK_MODEL,
+    DENSE_VECTOR,
+    QDRANT_RETRIES,
+    QDRANT_RETRY_DELAY,
+    QDRANT_TIMEOUT,
+    SPARSE_VECTOR,
+    IndexConfig,
+    require_env
+)
 
 BUILD_STAMP = "%Y%m%dT%H%M%S%fZ"
 _BUILD_RE = re.compile(r"__build_(\d{8}T\d{12}Z)_[0-9a-f]{8}$")
@@ -42,6 +54,35 @@ def get_client():
             timeout=QDRANT_TIMEOUT
         )
     return _client
+
+T = TypeVar("T")
+
+def with_qdrant_retry(
+    op: Callable[[], T],
+    *,
+    attempts: int = QDRANT_RETRIES,
+    delay: float = QDRANT_RETRY_DELAY
+) -> T:
+    """retries transient transport failures (connect timeout, DNS, reset).
+
+    qdrant-client wraps those in ResponseHandlingException. HTTP status errors
+    (missing collection, auth) raise UnexpectedResponse and are not retried —
+    those are not going to succeed on a second try.
+    """
+    last: ResponseHandlingException | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return op()
+        except ResponseHandlingException as exc:
+            last = exc
+            if attempt == attempts:
+                raise
+            print(
+                f"-> Qdrant transport error ({exc}). "
+                f"retry {attempt}/{attempts - 1} in {delay:.0f}s..."
+            )
+            time.sleep(delay)
+    raise last  # pragma: no cover
 
 def split_documents(docs: Iterable[Document], cfg: IndexConfig) -> list[Document]:
     '''splits doucments into manageable chunks, preserving boundary contex through overlap.'''
@@ -117,6 +158,33 @@ def require_encoders(cfg: IndexConfig, encoders: Encoders) -> None:
             f"but was handed an encoder for {encoders.sparse_model!r}"
         )
 
+class CrossEncoder(Protocol):
+    """the one call a reranker has to answer: a score per (query, document) pair.
+
+    fastembed's TextCrossEncoder satisfies this, and so does a fake built from a couple
+    of lines. that is the point — nothing in the test suite should need a 1GB download.
+    """
+
+    def rerank(self, query: str, documents: Iterable[str]) -> Iterable[float]: ...
+
+@dataclass(frozen=True)
+class Reranker:
+    """the cross-encoder, plus the model name it claims to implement.
+
+    declared rather than read off the object for the same reason `Encoders` declares its
+    own names, and with the same payoff: an eval run can record which reranker produced
+    its numbers, and a metric that cannot name its models is not evidence of anything.
+    """
+    encoder: CrossEncoder
+    model: str
+
+    @classmethod
+    def for_model(cls, name: str = DEFAULT_RERANK_MODEL) -> "Reranker":
+        """the production path. imported lazily, like the sparse encoder."""
+        from fastembed.rerank.cross_encoder import TextCrossEncoder
+
+        return cls(encoder=TextCrossEncoder(model_name=name), model=name)
+
 def collection_config(cfg: IndexConfig, dimension: int) -> dict:
     """vector configuration for a build collection."""
     sparse: dict[str, SparseVectorParams] = {}
@@ -154,7 +222,7 @@ def _build_age(name: str) -> timedelta | None:
 
 def current_target(client: QdrantClient, alias: str) -> str | None:
     """the collection an alias currently points at, or None if the alias is absent."""
-    for entry in client.get_aliases().aliases:
+    for entry in with_qdrant_retry(client.get_aliases).aliases:
         if entry.alias_name == alias:
             return entry.collection_name
     return None

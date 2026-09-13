@@ -1,0 +1,1145 @@
+{
+  "stamp": "20260913T025902Z",
+  "goldens": "/Users/alexanderflores/agentic-rag/evals/goldens.jsonl",
+  "candidate_limit": 50,
+  "rerank_depth": 50,
+  "rerank_model": "BAAI/bge-reranker-base",
+  "aliases": {
+    "hf_docs": "hf_docs__text_embedding_3_small__n2000__a9f037b6",
+    "transformers_docs": "transformers_docs__text_embedding_3_small__n2000__5950d56a"
+  },
+  "summary": {
+    "conceptual": {
+      "dense": {
+        "n": 40,
+        "recall@1": 0.025,
+        "recall@5": 0.35,
+        "recall@20": 0.525,
+        "mrr": 0.18556934325834465
+      },
+      "sparse": {
+        "n": 40,
+        "recall@1": 0.1,
+        "recall@5": 0.55,
+        "recall@20": 0.675,
+        "mrr": 0.2928781964944307
+      },
+      "hybrid": {
+        "n": 40,
+        "recall@1": 0.275,
+        "recall@5": 0.575,
+        "recall@20": 0.725,
+        "mrr": 0.39726936428161475
+      },
+      "reranked": {
+        "n": 40,
+        "recall@1": 0.275,
+        "recall@5": 0.675,
+        "recall@20": 0.75,
+        "mrr": 0.4371690882568998
+      }
+    },
+    "literal": {
+      "dense": {
+        "n": 40,
+        "recall@1": 0.125,
+        "recall@5": 0.725,
+        "recall@20": 0.875,
+        "mrr": 0.3975105815528656
+      },
+      "sparse": {
+        "n": 40,
+        "recall@1": 0.25,
+        "recall@5": 0.85,
+        "recall@20": 0.9,
+        "mrr": 0.5132863113897597
+      },
+      "hybrid": {
+        "n": 40,
+        "recall@1": 0.425,
+        "recall@5": 0.9,
+        "recall@20": 0.925,
+        "mrr": 0.6151133891474527
+      },
+      "reranked": {
+        "n": 40,
+        "recall@1": 0.35,
+        "recall@5": 0.825,
+        "recall@20": 0.95,
+        "mrr": 0.5404429774205893
+      }
+    },
+    "all": {
+      "dense": {
+        "n": 80,
+        "recall@1": 0.075,
+        "recall@5": 0.5375,
+        "recall@20": 0.7,
+        "mrr": 0.29153996240560515
+      },
+      "sparse": {
+        "n": 80,
+        "recall@1": 0.175,
+        "recall@5": 0.7,
+        "recall@20": 0.7875,
+        "mrr": 0.4030822539420952
+      },
+      "hybrid": {
+        "n": 80,
+        "recall@1": 0.35,
+        "recall@5": 0.7375,
+        "recall@20": 0.825,
+        "mrr": 0.5061913767145337
+      },
+      "reranked": {
+        "n": 80,
+        "recall@1": 0.3125,
+        "recall@5": 0.75,
+        "recall@20": 0.85,
+        "mrr": 0.48880603283874463
+      }
+    }
+  },
+  "rows": [
+    {
+      "question": "What is the minimal official version of PyTorch required to avoid the memory leak issue with native AMP when using `--fp16` without apex?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "59492e2a917f9125",
+      "ranks": {
+        "dense": 15,
+        "sparse": 1,
+        "hybrid": 4,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What should I do if I encounter a large memory leak when using mixed precision with native AMP?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "59492e2a917f9125",
+      "ranks": {
+        "dense": null,
+        "sparse": 1,
+        "hybrid": 39,
+        "reranked": 1
+      },
+      "found_by": "sparse"
+    },
+    {
+      "question": "How do I install Gradio locally from the main branch?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "7fb7d168ea82f62a",
+      "ranks": {
+        "dense": 1,
+        "sparse": 29,
+        "hybrid": 4,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I set up a local development environment for contributing to a specific open-source project?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "7fb7d168ea82f62a",
+      "ranks": {
+        "dense": 31,
+        "sparse": null,
+        "hybrid": 57,
+        "reranked": 57
+      },
+      "found_by": "dense"
+    },
+    {
+      "question": "How can I extract the adapters state dict from a model using the `get_peft_model_state_dict` method?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "d733aabbcfa3d36f",
+      "ranks": {
+        "dense": 3,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 8
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I extract and save only the adapter components from a modified model's state dictionary?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "d733aabbcfa3d36f",
+      "ranks": {
+        "dense": 5,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 9
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What version introduced the fix for the circular dependency with client + upload in Gradio?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "56232fa07ee86bb7",
+      "ranks": {
+        "dense": 97,
+        "sparse": 33,
+        "hybrid": 31,
+        "reranked": 4
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I resolve a circular dependency issue between the client and upload features in my project?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "56232fa07ee86bb7",
+      "ranks": {
+        "dense": 83,
+        "sparse": 31,
+        "hybrid": 24,
+        "reranked": 5
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What sampling rate should the speech input be when using the Wav2Vec2-Large-XLSR-53 model?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "f68765396b4e5914",
+      "ranks": {
+        "dense": 9,
+        "sparse": 1,
+        "hybrid": 2,
+        "reranked": 5
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How should I prepare my audio data before using it with a speech recognition model?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "f68765396b4e5914",
+      "ranks": {
+        "dense": 41,
+        "sparse": null,
+        "hybrid": 84,
+        "reranked": 84
+      },
+      "found_by": "dense"
+    },
+    {
+      "question": "How do I run the tests for the TensorFlow implementation of BrandNewBert using the `test_modeling_tf_brand_new_bert.py` file?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "4b3e6144243a36ac",
+      "ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I test a new TensorFlow model to ensure it behaves as expected after implementation?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "4b3e6144243a36ac",
+      "ranks": {
+        "dense": 5,
+        "sparse": 1,
+        "hybrid": 2,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How is LaTeX rendered in gr.Markdown, gr.Chatbot, and gr.DataFrame?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "d414a98d003fac10",
+      "ranks": {
+        "dense": 3,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I display LaTeX and handle content overflow in a markdown component?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "d414a98d003fac10",
+      "ranks": {
+        "dense": 9,
+        "sparse": 3,
+        "hybrid": 1,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I create a calibration dataset with 300 samples for post-training static quantization using OVQuantizer in the \"food101\" dataset?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "e5df7fcda8452965",
+      "ranks": {
+        "dense": 5,
+        "sparse": 1,
+        "hybrid": 3,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I reduce the memory usage and increase the speed of a machine learning model during inference?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "e5df7fcda8452965",
+      "ranks": {
+        "dense": null,
+        "sparse": null,
+        "hybrid": null,
+        "reranked": null
+      },
+      "found_by": ""
+    },
+    {
+      "question": "What argument should be passed to AudioLDM2Pipeline.from_pretrained to run generation in float16 precision?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "e8880520325f0434",
+      "ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I speed up audio generation without significantly affecting the quality?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "e8880520325f0434",
+      "ranks": {
+        "dense": 21,
+        "sparse": 3,
+        "hybrid": 5,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What is the source paper for the Reformer model in the Hugging Face Transformers documentation?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "5a47e8b7c82375e2",
+      "ranks": {
+        "dense": 41,
+        "sparse": 15,
+        "hybrid": 9,
+        "reranked": 5
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What are some examples of machine learning models released by major tech companies along with their research papers?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "5a47e8b7c82375e2",
+      "ranks": {
+        "dense": null,
+        "sparse": null,
+        "hybrid": null,
+        "reranked": null
+      },
+      "found_by": ""
+    },
+    {
+      "question": "What is the purpose of the StableDiffusionImg2ImgPipeline in the Stable Diffusion model?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "00f7c756b9b30ff3",
+      "ranks": {
+        "dense": 21,
+        "sparse": 15,
+        "hybrid": 4,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I generate a new image based on an existing image and a text description using a diffusion model?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "00f7c756b9b30ff3",
+      "ranks": {
+        "dense": 45,
+        "sparse": 9,
+        "hybrid": 5,
+        "reranked": 8
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What is the input signature key name for the deployed model's serving function?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "a2d858fd2685ff92",
+      "ranks": {
+        "dense": 7,
+        "sparse": 3,
+        "hybrid": 2,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I prepare an image file to be sent as a prediction request to a deployed model?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "a2d858fd2685ff92",
+      "ranks": {
+        "dense": 1,
+        "sparse": 23,
+        "hybrid": 5,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What is the link to the documentation for the OneFormer model on Hugging Face?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "750f83c5ca0b0103",
+      "ranks": {
+        "dense": 77,
+        "sparse": null,
+        "hybrid": 134,
+        "reranked": 134
+      },
+      "found_by": "dense"
+    },
+    {
+      "question": "Where can I find resources or documentation for different models related to image segmentation, depth estimation, video understanding, and audio processing?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "750f83c5ca0b0103",
+      "ranks": {
+        "dense": null,
+        "sparse": null,
+        "hybrid": null,
+        "reranked": null
+      },
+      "found_by": ""
+    },
+    {
+      "question": "How do I create a Gradio Image component with inverted colors and return it as a numpy array?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "8ba6608c6ac6d23c",
+      "ranks": {
+        "dense": 1,
+        "sparse": null,
+        "hybrid": 27,
+        "reranked": 3
+      },
+      "found_by": "dense"
+    },
+    {
+      "question": "How can I automatically reverse the colors of an image before converting it to a different format?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "8ba6608c6ac6d23c",
+      "ranks": {
+        "dense": null,
+        "sparse": null,
+        "hybrid": null,
+        "reranked": null
+      },
+      "found_by": ""
+    },
+    {
+      "question": "What are some resources available for using and optimizing the LLaMA model?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "7f1796cd0904b459",
+      "ranks": {
+        "dense": 3,
+        "sparse": 3,
+        "hybrid": 2,
+        "reranked": 6
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "Where can I find resources to help me get started with using and training a specific AI model for tasks like text classification and question answering?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "7f1796cd0904b459",
+      "ranks": {
+        "dense": 91,
+        "sparse": 3,
+        "hybrid": 16,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What is the role of the hyperparameter \\(\\alpha\\) in Contrastive Search decoding?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "38fcf7306a6d43bc",
+      "ranks": {
+        "dense": 3,
+        "sparse": 3,
+        "hybrid": 3,
+        "reranked": 4
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I improve the coherence of generated text while avoiding repetition in language models?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "38fcf7306a6d43bc",
+      "ranks": {
+        "dense": 3,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I perform object detection using Owlv2Processor and Owlv2ForObjectDetection?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "5d2ff494214adda7",
+      "ranks": {
+        "dense": 3,
+        "sparse": 1,
+        "hybrid": 3,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I perform object detection on an image using text descriptions without training a model from scratch?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "5d2ff494214adda7",
+      "ranks": {
+        "dense": 59,
+        "sparse": 5,
+        "hybrid": 19,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I verify that two implementations yield the same output using torch.allclose?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "f7906bec7bdfea07",
+      "ranks": {
+        "dense": 29,
+        "sparse": 3,
+        "hybrid": 4,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I troubleshoot differences in output between two implementations of a model?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "f7906bec7bdfea07",
+      "ranks": {
+        "dense": 19,
+        "sparse": 3,
+        "hybrid": 3,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What is the URL for the dataset oscar-corpus/OSCAR-2301 on Hugging Face?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "4eaa042b17b5e1fb",
+      "ranks": {
+        "dense": 1,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I find datasets related to specific projects or organizations on a platform that hosts machine learning models and datasets?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "4eaa042b17b5e1fb",
+      "ranks": {
+        "dense": null,
+        "sparse": null,
+        "hybrid": null,
+        "reranked": null
+      },
+      "found_by": ""
+    },
+    {
+      "question": "How do I install the `huggingface_hub` library with fastai support?",
+      "style": "literal",
+      "source": "hf_docs",
+      "chunk": "67437061b85d738a",
+      "ranks": {
+        "dense": 3,
+        "sparse": 1,
+        "hybrid": 1,
+        "reranked": 13
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I share my machine learning models with a community platform to increase their visibility and allow others to use them?",
+      "style": "conceptual",
+      "source": "hf_docs",
+      "chunk": "67437061b85d738a",
+      "ranks": {
+        "dense": 21,
+        "sparse": 75,
+        "hybrid": 13,
+        "reranked": 17
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I load the BERTweet model using the transformers library?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "8a40540bb425a7ea",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 12
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I use a pre-trained language model specifically designed for analyzing English tweets?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "8a40540bb425a7ea",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What is a Spout Vector in the Tanrei/GPTSAN-japanese model?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "e8af005adf5d00c8",
+      "ranks": {
+        "dense": 4,
+        "sparse": 4,
+        "hybrid": 4,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I control the focus of attention on specific parts of generated text in a Japanese language model?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "e8af005adf5d00c8",
+      "ranks": {
+        "dense": 6,
+        "sparse": 6,
+        "hybrid": 5,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What methods are available in the ChineseCLIPModel?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "6a67e905f741dc6a",
+      "ranks": {
+        "dense": 6,
+        "sparse": 4,
+        "hybrid": 3,
+        "reranked": 5
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I extract features from text and images using a specific model configuration?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "6a67e905f741dc6a",
+      "ranks": {
+        "dense": 38,
+        "sparse": null,
+        "hybrid": 72,
+        "reranked": 72
+      },
+      "found_by": "dense"
+    },
+    {
+      "question": "How can I monitor GPU memory usage in Python using the nvidia-ml-py3 library?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "7941a91b672143bc",
+      "ranks": {
+        "dense": 4,
+        "sparse": 2,
+        "hybrid": 3,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I monitor GPU memory usage and performance metrics during model training using Python?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "7941a91b672143bc",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What methods are available in the DebertaTokenizerFast class?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "1e9292c3abe58f84",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 6
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I process input data with special tokens for a specific model?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "1e9292c3abe58f84",
+      "ranks": {
+        "dense": 26,
+        "sparse": null,
+        "hybrid": 58,
+        "reranked": 58
+      },
+      "found_by": "dense"
+    },
+    {
+      "question": "Who is in cc in this letter?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "d0ffc7bba1e2d4cd",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "Who is listed as a carbon copy recipient in the internal correspondence?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "d0ffc7bba1e2d4cd",
+      "ranks": {
+        "dense": null,
+        "sparse": 8,
+        "hybrid": 16,
+        "reranked": 5
+      },
+      "found_by": "sparse"
+    },
+    {
+      "question": "What is the parameter range for the Llama2 model collection?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "086f9cf44093c248",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What is the purpose and scale of the Llama2 language model?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "086f9cf44093c248",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do you initialize the Trainer with a student model, teacher model, and compute_metrics function for image classification using MobileNetV2?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "6ad7946af5eed5f2",
+      "ranks": {
+        "dense": 2,
+        "sparse": 4,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I evaluate the accuracy of my image classification model after training it?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "6ad7946af5eed5f2",
+      "ranks": {
+        "dense": 6,
+        "sparse": 14,
+        "hybrid": 3,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I convert Mistral-7B-v0.1 raw checkpoints to HuggingFace format using the convert_mistral_weights_to_hf.py script?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "aadbb8ad49e1c4c3",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I convert and load a model checkpoint for use with HuggingFace?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "aadbb8ad49e1c4c3",
+      "ranks": {
+        "dense": 6,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I use the AutoImageProcessor API to prepare images for the Neighborhood Attention Transformer model?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "c922694ee1c8a44b",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 5
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I prepare images for a model that uses a hierarchical vision transformer with a sliding-window attention mechanism?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "c922694ee1c8a44b",
+      "ranks": {
+        "dense": 10,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I use the MecabTokenizer with the cl-tohoku/bert-base-japanese model?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "26598bedc9a501fa",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I use a Japanese language model with different tokenization methods?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "26598bedc9a501fa",
+      "ranks": {
+        "dense": 4,
+        "sparse": 4,
+        "hybrid": 2,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I use PyTorch's native `torch.nn.functional.scaled_dot_product_attention` with fused GPU kernels for memory-efficient attention and flash attention?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "0efe89326b5a3316",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 40
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I reduce the memory requirements and increase the training speed of large AI models using PyTorch?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "0efe89326b5a3316",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What method is used for text generation in the `generation.GenerationMixin` class for PyTorch?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "6bc1480fe8d88662",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I customize the parameters for generating text using different machine learning frameworks?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "6bc1480fe8d88662",
+      "ranks": {
+        "dense": 2,
+        "sparse": 4,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I normalize bounding boxes to a 0-1000 scale using the normalize_bbox function?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "d411412be46dad33",
+      "ranks": {
+        "dense": 2,
+        "sparse": 4,
+        "hybrid": 1,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I convert the coordinates of a bounding box to a 0-1000 scale using the dimensions of the original document?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "d411412be46dad33",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I load a model in 8-bit for inference using the `load_in_8bit` parameter with `device_map` set to `\"auto\"`?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "a2b3c76efd54dd0a",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 3
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I efficiently load a model for inference using multiple GPUs and control the memory allocation for each GPU?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "a2b3c76efd54dd0a",
+      "ranks": {
+        "dense": 36,
+        "sparse": 2,
+        "hybrid": 8,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do I prepare a tf.data.Dataset using TFAutoModelForSeq2SeqLM's prepare_tf_dataset method?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "f9064236afa8e495",
+      "ranks": {
+        "dense": 4,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I prepare my dataset and configure my model for training and evaluation using TensorFlow and Keras callbacks?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "f9064236afa8e495",
+      "ranks": {
+        "dense": 28,
+        "sparse": 10,
+        "hybrid": 12,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do you evaluate a model's perplexity using the Trainer class in the transformers library?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "da4782635c128980",
+      "ranks": {
+        "dense": 6,
+        "sparse": 2,
+        "hybrid": 2,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I finetune a language model and evaluate its performance using a specific training framework?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "da4782635c128980",
+      "ranks": {
+        "dense": 12,
+        "sparse": 54,
+        "hybrid": 3,
+        "reranked": 5
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What are the distributional output classes available in time_series_utils?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "14893334d5080adb",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What are some utility functions or classes available for working with time series models?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "14893334d5080adb",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "What example script supports `TFAlbertForMultipleChoice`?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "ace9e14307a62da2",
+      "ranks": {
+        "dense": 2,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "Where can I find example scripts and notebooks for using models for question answering and multiple choice tasks?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "ace9e14307a62da2",
+      "ranks": {
+        "dense": 4,
+        "sparse": 4,
+        "hybrid": 1,
+        "reranked": 1
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How do you load a feature extractor with AutoFeatureExtractor.from_pretrained for audio data using the \"facebook/wav2vec2-base\" model?",
+      "style": "literal",
+      "source": "transformers_docs",
+      "chunk": "3987c5f8c80f4b02",
+      "ranks": {
+        "dense": 6,
+        "sparse": 2,
+        "hybrid": 1,
+        "reranked": 2
+      },
+      "found_by": "dense+sparse"
+    },
+    {
+      "question": "How can I ensure that audio samples in my dataset are of the same length for processing?",
+      "style": "conceptual",
+      "source": "transformers_docs",
+      "chunk": "3987c5f8c80f4b02",
+      "ranks": {
+        "dense": 2,
+        "sparse": 4,
+        "hybrid": 1,
+        "reranked": 32
+      },
+      "found_by": "dense+sparse"
+    }
+  ]
+}

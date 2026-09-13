@@ -6,7 +6,7 @@ from langchain_qdrant.sparse_embeddings import SparseEmbeddings, SparseVector
 from qdrant_client import QdrantClient
 
 from config import IndexConfig
-from index import Encoders
+from index import Encoders, Reranker
 
 DIMENSION = 32
 
@@ -15,6 +15,7 @@ DIMENSION = 32
 # has never called.
 FAKE_DENSE_MODEL = "fake-dense-32"
 FAKE_SPARSE_MODEL = "fake-bm25"
+FAKE_RERANK_MODEL = "fake-reranker"
 
 
 @pytest.fixture
@@ -107,3 +108,25 @@ def encoders(embeddings, sparse_embeddings):
 def dense_encoders(embeddings):
     """what `dense_cfg` declares. also the stand-in for 'forgot the sparse encoder'."""
     return Encoders(dense=embeddings, dense_model=FAKE_DENSE_MODEL)
+
+
+class FakeCrossEncoder:
+    """Scores a pair by query/document token overlap.
+
+    Not a model, but it has the one property that makes a reranker testable: the score
+    depends on the pair rather than on the document alone, so reordering is observable
+    and predictable. Returns a generator, like fastembed does, so callers that forget to
+    materialize it get caught here rather than in production.
+    """
+
+    def rerank(self, query: str, documents):
+        wanted = {t for t in query.lower().split() if t}
+        for text in documents:
+            tokens = {t for t in text.lower().split() if t}
+            yield len(wanted & tokens) / (len(wanted) or 1)
+
+
+@pytest.fixture
+def reranker():
+    """a reranker that names itself, for the same reason the encoders do."""
+    return Reranker(encoder=FakeCrossEncoder(), model=FAKE_RERANK_MODEL)

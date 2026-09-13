@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from qdrant_client.http import models
 
 from config import CORPORA, IndexConfig, require_env
-from index import Encoders, get_client
+from index import Encoders, get_client, with_qdrant_retry
 from retrieval import CONTENT_KEY, KnowledgeBase, chunk_key
 
 GOLDENS_PATH = Path(__file__).resolve().parents[1] / "evals" / "goldens.jsonl"
@@ -82,12 +82,12 @@ def sample_chunks(
     sample is not reproducible from a seed — the saved file is the artifact, not the
     procedure that produced it.
     """
-    points = client.query_points(
+    points = with_qdrant_retry(lambda: client.query_points(
         alias,
         query=models.SampleQuery(sample=models.Sample.RANDOM),
         limit=n * oversample,
         with_payload=True
-    ).points
+    )).points
 
     seen: set[str] = set()
     texts: list[str] = []

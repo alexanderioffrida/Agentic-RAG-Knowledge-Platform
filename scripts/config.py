@@ -12,6 +12,7 @@ from typing import ClassVar
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 DEFAULT_SPARSE_MODEL = "Qdrant/bm25"
 DEFAULT_CHAT_MODEL = "gpt-4o"
+DEFAULT_RERANK_MODEL = "BAAI/bge-reranker-base"
 
 DENSE_VECTOR = "dense"      # previously Qdrant's unnamed default
 SPARSE_VECTOR = "sparse"
@@ -20,9 +21,22 @@ RETRIEVAL_K = 5
 CANDIDATE_LIMIT = 50
 RRF_K = 60
 
+# how many fused candidates the cross-encoder rescores. the golden set puts a perfect
+# reranker's ceiling at 82.5% recall@5 over a depth of 20, 87.5% over 50, and 93.8% over
+# the whole pool — but the whole pool is ~200 candidates for four times the inference,
+# so 50 is the knee. not part of any IndexConfig hash: reranking is query-time work that
+# changes neither the index nor the chunk text, so it cannot invalidate a golden set.
+RERANK_DEPTH = 50
+
 # qdrant-client leaves this to httpx, whose default is 5s. that is fine for queries and
 # far too short for ingest upserts against a cloud instance, which time out mid-build.
 QDRANT_TIMEOUT = 60
+
+# a long CPU-bound rerank leaves the keep-alive dead, and the next query_points has to
+# reconnect under a loaded machine. two retries, two seconds apart, cover that without
+# hiding a collection that is actually gone.
+QDRANT_RETRIES = 3
+QDRANT_RETRY_DELAY = 2.0
 
 def slug(value: str) -> str:
     """lowercases and collapses each run of non-alphanumerics into one underscore."""

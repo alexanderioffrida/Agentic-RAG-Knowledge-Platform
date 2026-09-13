@@ -10,9 +10,15 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 
 from config import (
-    CANDIDATE_LIMIT, DENSE_VECTOR, RETRIEVAL_K, RRF_K, SPARSE_VECTOR, IndexConfig
+    CANDIDATE_LIMIT,
+    DENSE_VECTOR,
+    RERANK_DEPTH,
+    RETRIEVAL_K,
+    RRF_K,
+    SPARSE_VECTOR,
+    IndexConfig
 )
-from index import Encoders, ensure_index, require_encoders
+from index import Encoders, Reranker, ensure_index, require_encoders, with_qdrant_retry
 
 # langchain-qdrant's payload convention, so passages can be read straight off a point.
 CONTENT_KEY = "page_content"
@@ -107,6 +113,40 @@ def reciprocal_rank_fusion(
     
     return sorted(merged.values(), key=lambda p: p.fused_score or 0.0, reverse=True)
 
+def rerank(
+    reranker: Reranker,
+    query: str,
+    passages: list[Passage],
+    k: int = RETRIEVAL_K,
+    depth: int = RERANK_DEPTH
+) -> list[Passage]:
+    """rescores the top `depth` fused candidates with the cross-encoder, best `k` first.
+
+    the cross-encoder reads the query and the passage together, with attention running
+    between them. that is why its score cannot be precomputed at ingest the way a dense
+    vector can, and why it beats one: relevance is judged against this query rather than
+    against a single embedding that had to summarize the chunk for every possible query.
+
+    candidates past `depth` are kept, in fused order, below every rescored one. dropping
+    them would cost nothing in production, since only `k` are ever returned, but it would
+    cap the eval's reranked arm at `depth` and turn each rank comparison into a
+    measurement of the cutoff instead of the model.
+    """
+    head, tail = passages[:depth], passages[depth:]
+    if not head:
+        return []
+
+    scores = list(reranker.encoder.rerank(query, [passage.text for passage in head]))
+    if len(scores) != len(head):
+        raise RuntimeError(
+            f"reranker '{reranker.model}' returned {len(scores)} scores "
+            f"for {len(head)} candidates"
+        )
+
+    ordered = sorted(zip(head, scores), key=lambda pair: pair[1], reverse=True)
+    rescored = [replace(passage, rerank_score=score) for passage, score in ordered]
+    return (rescored + [replace(passage) for passage in tail])[:k]
+
 def format_for_llm(passages: list[Passage]) -> str:
     """renders passages for the model. metadata still travels separately as the artifact."""
     if not passages:
@@ -123,7 +163,8 @@ class KnowledgeBase:
         self,
         client: QdrantClient,
         configs: list[IndexConfig] | tuple[IndexConfig, ...],
-        encoders: Encoders
+        encoders: Encoders,
+        reranker: Reranker | None = None
     ) -> None:
         # one set of encoders serves every corpus, because retrieve() fuses them into a
         # single pool and rankings from two embedding spaces are not comparable. so every
@@ -136,6 +177,9 @@ class KnowledgeBase:
         self.client = client
         self.configs = configs
         self.encoders = encoders
+        # optional, and unvalidated on purpose: unlike the encoders, a reranker makes no
+        # claim about how any index was built, so no config can disagree with it.
+        self.reranker = reranker
         self._aliases: dict[str, str] = {}
 
     def ensure_indexes(self, loader=None) -> "KnowledgeBase":
@@ -186,13 +230,13 @@ class KnowledgeBase:
         ]
 
     def _search(self, cfg, query_vector, using: str, limit: int, kind: str):
-        points = self.client.query_points(
+        points = with_qdrant_retry(lambda: self.client.query_points(
             collection_name=self._aliases[cfg.base],
             query=query_vector,
             using=using,
             limit=limit,
             with_payload=True
-        ).points
+        )).points
         return [
             passage_from_point(point, cfg.base, rank, kind=kind)
             for rank, point in enumerate(points, start=1)
@@ -208,8 +252,13 @@ class KnowledgeBase:
         rankings = self.dense_rankings(query, sources=sources)
         rankings += self.sparse_rankings(query, sources=sources)
         fused = reciprocal_rank_fusion(rankings)
-        # confidence stays None until a cross-encoder is in the path
-        # RRF scores are a narrow function of rank and say nothing about abs relevance,
-        # so thresholding on them would be meaningless.
-        return RetrievalResult(query=query, passages=fused[:k])
+        passages = (
+            fused[:k] if self.reranker is None
+            else rerank(self.reranker, query, fused, k)
+        )
+        # confidence stays None even with the reranker in the path. cross-encoder scores
+        # are at least comparable across queries, which RRF scores never were — a narrow
+        # function of rank says nothing about absolute relevance — but nothing here has
+        # calibrated a threshold on them yet, and an uncalibrated one is not confidence.
+        return RetrievalResult(query=query, passages=passages)
 

@@ -6,6 +6,7 @@ import pytest
 
 from config import IndexConfig
 from evaluate import (
+    arms_in,
     attribution,
     evaluate,
     found_by,
@@ -156,3 +157,69 @@ def test_arms_share_one_embedding_pass(kb):
     arms = rankings_for(kb, "transformers pipelines", limit=5)
     assert set(arms) == {"dense", "sparse", "hybrid"}
     assert calls == {"dense": 1, "sparse": 1}
+
+
+def test_arms_in_omits_reranked_until_it_is_scored():
+    """the three-arm baseline stays printable after the fourth arm lands."""
+    three = [{"ranks": {"dense": 1, "sparse": 2, "hybrid": 1}}]
+    four = [{"ranks": {"dense": 1, "sparse": 2, "hybrid": 1, "reranked": 3}}]
+    assert arms_in(three) == ("dense", "sparse", "hybrid")
+    assert arms_in(four) == ("dense", "sparse", "hybrid", "reranked")
+
+
+def test_reranked_arm_is_hybrid_reordered_not_a_new_pool(kb, reranker):
+    """same passages, same length — only the order may change.
+
+    if this arm were truncated to RETRIEVAL_K, every rank comparison with hybrid
+    would measure the cutoff rather than the model.
+    """
+    kb.reranker = reranker
+    arms = rankings_for(kb, "transformers pipelines", limit=5)
+
+    assert set(arms) == {"dense", "sparse", "hybrid", "reranked"}
+    assert len(arms["reranked"]) == len(arms["hybrid"])
+    assert {p.id for p in arms["reranked"]} == {p.id for p in arms["hybrid"]}
+
+
+def test_reranked_arm_does_not_re_embed(kb, reranker):
+    calls = {"dense": 0, "sparse": 0}
+    kb.reranker = reranker
+    kb.encoders = dataclasses.replace(
+        kb.encoders,
+        dense=Counting(kb.encoders.dense, calls, "dense"),
+        sparse=Counting(kb.encoders.sparse, calls, "sparse"),
+    )
+
+    rankings_for(kb, "transformers pipelines", limit=5)
+    assert calls == {"dense": 1, "sparse": 1}
+
+
+def test_evaluate_scores_the_reranked_arm(kb, reranker, loader):
+    kb.reranker = reranker
+    gold = loader(None)[3].page_content
+    golden = Golden(
+        question=gold, style="literal", chunk=chunk_key(gold), source="alpha",
+        chunk_fingerprint="unused-here", head=gold[:40],
+    )
+
+    rows = evaluate(kb, [golden], limit=10)["rows"]
+    assert set(rows[0]["ranks"]) == {"dense", "sparse", "hybrid", "reranked"}
+    assert rows[0]["ranks"]["reranked"] == 1
+
+
+def test_attribution_reports_rerank_rescues_and_losses():
+    rows = [
+        {
+            "ranks": {"dense": 1, "sparse": 1, "hybrid": 6, "reranked": 2},
+            "found_by": "dense+sparse",
+        },
+        {
+            "ranks": {"dense": 1, "sparse": 1, "hybrid": 2, "reranked": 9},
+            "found_by": "dense+sparse",
+        },
+    ]
+    text = attribution(rows, k=5)
+    assert "rescued by rerank" in text and "lost by rerank" in text
+    # question 0: hybrid 6 (out) -> reranked 2 (in); question 1 is the reverse
+    assert "rescued by rerank      1" in text
+    assert "lost by rerank         1" in text

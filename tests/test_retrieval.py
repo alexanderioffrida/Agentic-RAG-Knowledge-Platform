@@ -4,7 +4,8 @@ import dataclasses
 
 import pytest
 
-from retrieval import Passage, reciprocal_rank_fusion
+from index import Reranker
+from retrieval import Passage, reciprocal_rank_fusion, rerank
 
 
 def p(pid, source="a", dense_rank=None, sparse_rank=None):
@@ -126,6 +127,27 @@ def test_chunks_found_by_both_retrievers_carry_both_ranks(client, encoders, load
     assert both, "at least one chunk should surface in both rankings"
 
 
+def test_search_retries_a_qdrant_connect_timeout(client, encoders, loader):
+    """a dead keep-alive after a long rerank must not kill the eval loop."""
+    from qdrant_client.http.exceptions import ResponseHandlingException
+
+    kb = _kb(client, encoders, loader)
+    real = kb.client.query_points
+    calls = {"n": 0}
+
+    def flaky(**kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise ResponseHandlingException(TimeoutError("timed out"))
+        return real(**kwargs)
+
+    kb.client.query_points = flaky
+    rankings = kb.dense_rankings("transformers", limit=3)
+
+    assert rankings[0], "first corpus should succeed on retry"
+    assert calls["n"] >= 2
+
+
 def test_dense_only_config_skips_sparse_entirely(client, dense_encoders, loader):
     kb = _kb(client, dense_encoders, loader)
 
@@ -167,6 +189,102 @@ def test_hybrid_and_dense_only_corpora_share_one_encoder_set(client, encoders, l
     result = kb.retrieve("transformers pipelines", k=5)
     assert len(result.passages) == 5
     assert {p.source for p in result.passages} <= {"alpha", "beta"}
+
+
+# --- reranking ----------------------------------------------------------------------
+
+def _text(pid, body):
+    return Passage(id=pid, text=body, source="a")
+
+
+def test_rerank_orders_by_cross_encoder_score_not_fused_order(reranker):
+    """The point of the stage: the pair score overrules the position it arrived in."""
+    fused = [
+        _text("first", "unrelated words entirely"),
+        _text("second", "loading a tokenizer quickly"),
+    ]
+
+    out = rerank(reranker, "loading a tokenizer", fused, k=2)
+
+    assert [p.id for p in out] == ["second", "first"]
+    assert out[0].rerank_score > out[1].rerank_score
+
+
+def test_rerank_keeps_the_unscored_tail_in_fused_order(reranker):
+    """Past `depth` the fused order stands, and a None score says 'never rescored'.
+
+    Dropping the tail would be invisible in production, where only k come back, and
+    would silently cap the eval's reranked arm at `depth`.
+    """
+    fused = [
+        _text("a", "nothing in common"),
+        _text("b", "tokenizer loading"),
+        _text("c", "tail one"),
+        _text("d", "tail two"),
+    ]
+
+    out = rerank(reranker, "tokenizer loading", fused, k=4, depth=2)
+
+    assert [p.id for p in out] == ["b", "a", "c", "d"]
+    assert out[0].rerank_score is not None and out[1].rerank_score is not None
+    assert out[2].rerank_score is None and out[3].rerank_score is None
+
+
+def test_rerank_truncates_to_k_after_reordering(reranker):
+    fused = [_text("a", "no overlap here"), _text("b", "tokenizer"), _text("c", "x")]
+
+    out = rerank(reranker, "tokenizer", fused, k=1)
+
+    assert [p.id for p in out] == ["b"]
+
+
+def test_rerank_does_not_mutate_inputs(reranker):
+    fused = [_text("a", "tokenizer loading")]
+
+    rerank(reranker, "tokenizer loading", fused, k=1)
+
+    assert fused[0].rerank_score is None
+
+
+def test_rerank_of_an_empty_pool_is_empty(reranker):
+    assert rerank(reranker, "anything", [], k=5) == []
+
+
+def test_rerank_refuses_a_score_count_that_does_not_match(reranker):
+    """A silent zip truncation would drop candidates and look like a retrieval miss."""
+
+    class Short:
+        def rerank(self, query, documents):
+            return [1.0]
+
+    broken = dataclasses.replace(reranker, encoder=Short())
+    fused = [_text("a", "one"), _text("b", "two")]
+
+    with pytest.raises(RuntimeError, match="returned 1 scores for 2 candidates"):
+        rerank(broken, "query", fused, k=2)
+
+
+def test_retrieve_reranks_when_a_reranker_is_supplied(client, encoders, loader):
+    from retrieval import KnowledgeBase
+
+    plain = _kb(client, encoders, loader)
+    assert all(p.rerank_score is None for p in plain.retrieve("transformers", k=3).passages)
+
+    with_rerank = KnowledgeBase(
+        client, _corpora(encoders), encoders, reranker=_overlap_reranker()
+    ).ensure_indexes(loader=loader)
+    passages = with_rerank.retrieve("chunk 3 about transformers", k=3).passages
+
+    assert len(passages) == 3
+    assert all(p.rerank_score is not None for p in passages)
+    scores = [p.rerank_score for p in passages]
+    assert scores == sorted(scores, reverse=True)
+
+
+def _overlap_reranker():
+    from conftest import FAKE_RERANK_MODEL, FakeCrossEncoder
+
+    return Reranker(encoder=FakeCrossEncoder(), model=FAKE_RERANK_MODEL)
 
 
 def test_knowledge_base_refuses_a_corpus_its_encoders_do_not_match(client, encoders):
